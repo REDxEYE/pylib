@@ -1,0 +1,6 @@
+[submodule "lib/detex"]
+	path = lib/detex
+	url = https://github.com/hglm/detex.git
+[submodule "lib/lz4"]
+	path = lib/lz4
+	url = https://github.com/lz4/lz4.git
