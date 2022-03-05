@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
-project(pylib C)
+project(pylib)
+set(CMAKE_CXX_STANDARD 17)
 
 find_package(Python3 REQUIRED COMPONENTS Development NumPy)
 
@@ -33,10 +34,15 @@ set(LZ4_SOURCES
         lib/lz4/lib/xxhash.c
         )
 
+set(PYLIB_SOURCES
+        main.cpp
+        compressed_index_buffer.cpp
+        compressed_vertex_buffer.cpp
+        )
 
-add_library(pylib SHARED main.c ${DETEX_SOURCES} ${LZ4_SOURCES})
+add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES})
 
-target_include_directories(pylib PRIVATE ${Python3_INCLUDE_DIRS} lib/detex lib/lz4)
+target_include_directories(pylib PRIVATE ${Python3_INCLUDE_DIRS} lib/detex lib/lz4/lib lib/span/include/tcb)
 target_link_libraries(pylib PRIVATE ${Python3_LIBRARIES})
 target_link_options(pylib PRIVATE -static)
 
