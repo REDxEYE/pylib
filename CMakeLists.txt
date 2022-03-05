@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(pylib)
 set(CMAKE_CXX_STANDARD 17)
 
-find_package(Python3 REQUIRED COMPONENTS Development NumPy)
+find_package(Python3 REQUIRED COMPONENTS Development)
 
 set(DETEX_SOURCES
         lib/detex/bits.c
