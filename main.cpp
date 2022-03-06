@@ -5,22 +5,22 @@
 #include <detex.h>
 #include <lz4.h>
 #include <vector>
-
-PyObject * __cdecl module_bc7_decompress(PyObject *, PyObject *);
-PyObject * __cdecl module_bc6_decompress(PyObject *, PyObject *);
-PyObject * __cdecl module_dxt1_decompress(PyObject *, PyObject *);
-
-PyObject * __cdecl module_dxt5_decompress(PyObject *, PyObject *);
-
-PyObject * __cdecl module_ati1_decompress(PyObject *, PyObject *);
-
-PyObject * __cdecl module_ati2_decompress(PyObject *, PyObject *);
-
-PyObject * __cdecl module_lz4_decompress(PyObject *self, PyObject *args);
-
-PyObject * __cdecl module_decode_vertex_buffer(PyObject *self, PyObject *args);
-PyObject * __cdecl module_decode_index_buffer(PyObject *self, PyObject *args);
 extern "C" {
+PyObject * module_bc7_decompress(PyObject *, PyObject *);
+PyObject * module_bc6_decompress(PyObject *, PyObject *);
+PyObject * module_dxt1_decompress(PyObject *, PyObject *);
+
+PyObject * module_dxt5_decompress(PyObject *, PyObject *);
+
+PyObject * module_ati1_decompress(PyObject *, PyObject *);
+
+PyObject * module_ati2_decompress(PyObject *, PyObject *);
+
+PyObject * module_lz4_decompress(PyObject *self, PyObject *args);
+
+PyObject * module_decode_vertex_buffer(PyObject *self, PyObject *args);
+PyObject * module_decode_index_buffer(PyObject *self, PyObject *args);
+
 static PyMethodDef methods[] = {
     {"bc7_decompress", module_bc7_decompress, METH_VARARGS, nullptr},
     {"bc6_decompress", module_bc6_decompress, METH_VARARGS, nullptr},

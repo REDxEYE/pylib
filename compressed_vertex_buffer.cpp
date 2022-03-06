@@ -173,7 +173,7 @@ tcb::span<uint8_t>
 DecodeVertexBlock(tcb::span<uint8_t> data, tcb::span<uint8_t> vertexData, int vertexCount, int vertexSize,
                   tcb::span<uint8_t> lastVertex) {
     if (vertexCount <= 0 || vertexCount > MeshOptimizerVertexDecoder::VertexBlockMaxSize)
-        throw new std::invalid_argument{"Expected vertexCount to be between 0 and VertexMaxBlockSize"};
+        throw std::invalid_argument{"Expected vertexCount to be between 0 and VertexMaxBlockSize"};
 
     std::vector<uint8_t> buffer{};
     buffer.resize(MeshOptimizerVertexDecoder::VertexBlockMaxSize);
