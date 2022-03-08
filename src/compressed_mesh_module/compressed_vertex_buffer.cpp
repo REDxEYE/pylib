@@ -21,17 +21,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-#include "compressed_vertex_buffer.h"
-#include <memory.h>
+#include <compressed_vertex_buffer.h>
 
 // TODO: Move these to the header and replace tcb::span with std::span once C++-20 is available
 static tcb::span<uint8_t>
-DecodeBytesGroup(const tcb::span<uint8_t> &data, tcb::span<uint8_t> destination, int bitslog2);
+DecodeBytesGroup(const tcb::span<uint8_t> &data, tcb::span<uint8_t> destination, uint32_t bitslog2);
 
 static tcb::span<uint8_t> DecodeBytes(tcb::span<uint8_t> data, tcb::span<uint8_t> destination);
 
 static tcb::span<uint8_t>
-DecodeVertexBlock(tcb::span<uint8_t> data, tcb::span<uint8_t> vertexData, int vertexCount, int vertexSize,
+DecodeVertexBlock(tcb::span<uint8_t> data, tcb::span<uint8_t> vertexData, uint32_t vertexCount, uint32_t vertexSize,
                   tcb::span<uint8_t> lastVertex);
 
 
@@ -50,7 +49,7 @@ uint8_t MeshOptimizerVertexDecoder::Unzigzag8(uint8_t v) {
     return static_cast<uint8_t>(-(v & 1) ^ (v >> 1));
 }
 
-tcb::span<uint8_t> DecodeBytesGroup(const tcb::span<uint8_t> &data, tcb::span<uint8_t> destination, int bitslog2) {
+tcb::span<uint8_t> DecodeBytesGroup(const tcb::span<uint8_t> &data, tcb::span<uint8_t> destination, uint32_t bitslog2) {
     uint32_t dataOffset = 0u;
     int dataVar;
     uint8_t b;
@@ -170,7 +169,7 @@ tcb::span<uint8_t> DecodeBytes(tcb::span<uint8_t> data, tcb::span<uint8_t> desti
 }
 
 tcb::span<uint8_t>
-DecodeVertexBlock(tcb::span<uint8_t> data, tcb::span<uint8_t> vertexData, int vertexCount, int vertexSize,
+DecodeVertexBlock(tcb::span<uint8_t> data, tcb::span<uint8_t> vertexData, uint32_t vertexCount, uint32_t vertexSize,
                   tcb::span<uint8_t> lastVertex) {
     if (vertexCount <= 0 || vertexCount > MeshOptimizerVertexDecoder::VertexBlockMaxSize)
         throw std::invalid_argument{"Expected vertexCount to be between 0 and VertexMaxBlockSize"};
@@ -186,7 +185,7 @@ DecodeVertexBlock(tcb::span<uint8_t> data, tcb::span<uint8_t> vertexData, int ve
     for (auto k = 0; k < vertexSize; ++k) {
         data = DecodeBytes(data, slice(buffer, 0, vertexCountAligned));
 
-        auto vertexOffset = k;
+        uint32_t vertexOffset = k;
 
         auto p = lastVertex[k];
 
@@ -207,7 +206,7 @@ DecodeVertexBlock(tcb::span<uint8_t> data, tcb::span<uint8_t> vertexData, int ve
     return data;
 }
 
-std::vector<uint8_t> MeshOptimizerVertexDecoder::DecodeVertexBuffer(int vertexCount, int vertexSize,
+std::vector<uint8_t> MeshOptimizerVertexDecoder::DecodeVertexBuffer(uint32_t vertexCount, uint32_t vertexSize,
                                                                     const std::vector<uint8_t> &vertexBuffer) {
     if (vertexSize <= 0 || vertexSize > 256)
         throw std::invalid_argument{"Vertex size is expected to be between 1 and 256"};
@@ -235,16 +234,16 @@ std::vector<uint8_t> MeshOptimizerVertexDecoder::DecodeVertexBuffer(int vertexCo
 
     copy_to(slice(vertexSpan, vertexBuffer.size() - 1 - vertexSize, vertexSize), lastVertex);
 
-    auto vertexBlockSize = GetVertexBlockSize(vertexSize);
+    uint32_t vertexBlockSize = GetVertexBlockSize(vertexSize);
 
-    auto vertexOffset = 0;
+    uint32_t vertexOffset = 0;
 
     std::vector<uint8_t> result{};
     result.resize(vertexCount * vertexSize);
 
     while (vertexOffset < vertexCount) {
         printf("Decoding vertex block %i/%i\r", vertexOffset, vertexCount);
-        auto blockSize = vertexOffset + vertexBlockSize < vertexCount
+        uint32_t blockSize = vertexOffset + vertexBlockSize < vertexCount
                          ? vertexBlockSize
                          : vertexCount - vertexOffset;
 

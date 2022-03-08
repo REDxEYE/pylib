@@ -45,7 +45,7 @@ public:
     //static tcb::span<uint8_t> DecodeBytesGroup(const tcb::span<uint8_t> &data, tcb::span<uint8_t> destination, int bitslog2);
     //static tcb::span<uint8_t> DecodeBytes(tcb::span<uint8_t> data, tcb::span<uint8_t> destination);
     //static tcb::span<uint8_t> DecodeVertexBlock(tcb::span<uint8_t> data, tcb::span<uint8_t> vertexData, int vertexCount, int vertexSize, tcb::span<uint8_t> lastVertex);
-    static std::vector<uint8_t> DecodeVertexBuffer(int vertexCount, int vertexSize, const std::vector<uint8_t> &vertexBuffer);
+    static std::vector<uint8_t> DecodeVertexBuffer(uint32_t vertexCount, uint32_t vertexSize, const std::vector<uint8_t> &vertexBuffer);
 };
 
 #endif //COMPRESSED_VERTEX_BUFFER_H

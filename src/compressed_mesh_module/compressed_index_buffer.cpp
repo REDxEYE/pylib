@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "compressed_index_buffer.h"
+#include <compressed_index_buffer.h>
 
 ////////////////
 

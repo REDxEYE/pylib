@@ -35,14 +35,15 @@ set(LZ4_SOURCES
         )
 
 set(PYLIB_SOURCES
-        main.cpp
-        compressed_index_buffer.cpp
-        compressed_vertex_buffer.cpp
+        src/main.cpp
+        src/compressed_mesh_module/compressed_index_buffer.cpp
+        src/compressed_mesh_module/compressed_vertex_buffer.cpp
+        src/texture_module/texture_decompression.cpp
         )
 
 add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES})
 
-target_include_directories(pylib PRIVATE ${Python3_INCLUDE_DIRS} lib/detex lib/lz4/lib lib/span/include/tcb)
+target_include_directories(pylib PRIVATE ${Python3_INCLUDE_DIRS} include lib/detex lib/lz4/lib lib/span/include/tcb)
 target_link_libraries(pylib PRIVATE ${Python3_LIBRARIES})
 target_link_options(pylib PRIVATE -static)
 
