@@ -22,8 +22,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 #include <compressed_vertex_buffer.h>
+#include <cstring>
+#include <string>
 
-// TODO: Move these to the header and replace tcb::span with std::span once C++-20 is available
+// TODO: Move these to the header and replace tcb::span with std::span once
+// C++-20 is available
 static tcb::span<uint8_t>
 DecodeBytesGroup(const tcb::span<uint8_t> &data, tcb::span<uint8_t> destination, uint32_t bitslog2);
 

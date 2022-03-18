@@ -1,9 +1,8 @@
 #include <compressed_index_buffer.h>
 #include <compressed_vertex_buffer.h>
 #pragma clang diagnostic push
-#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 
-#define Py_LIMITED_API 3
+#pragma ide diagnostic ignored "OCUnusedGlobalDeclarationInspection"
 #include <Python.h>
 #include <lz4.h>
 #include <texture_compression.h>
