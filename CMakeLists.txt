@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(pylib)
 set(CMAKE_CXX_STANDARD 17)
-
-find_package(Python3 REQUIRED COMPONENTS Development)
+set (Python3_FIND_ABI "ON" "ON" "ON")
+find_package(Python REQUIRED COMPONENTS Development Interpreter )
 
 set(DETEX_SOURCES
         lib/detex/bits.c
@@ -42,11 +42,21 @@ set(PYLIB_SOURCES
         )
 
 add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES})
-
-target_include_directories(pylib PRIVATE ${Python3_INCLUDE_DIRS} include lib/detex lib/lz4/lib lib/span/include/tcb)
-target_link_libraries(pylib PRIVATE ${Python3_LIBRARIES})
-target_link_options(pylib PRIVATE -static)
-
-set_target_properties(pylib PROPERTIES CMAKE_C_STANDARD 90)
+target_compile_definitions(pylib
+        PRIVATE
+        Py_LIMITED_API
+        )
+target_include_directories(pylib PRIVATE ${Python_INCLUDE_DIRS} include lib/detex lib/lz4/lib lib/span/include/tcb)
+if (MSVC)
+    target_link_directories(pylib PUBLIC ${Python_LIBRARY_DIRS})
+    target_link_libraries(pylib PRIVATE python3)
+    target_compile_definitions(pylib PUBLIC _CRT_SECURE_NO_WARNINGS)
+    target_compile_options(pylib PUBLIC /EHs)
+    set_target_properties(pylib PROPERTIES SUFFIX ".pyd")
+else()
+    target_link_libraries(pylib PRIVATE ${Python_LIBRARIES})
+#    target_link_options(pylib PRIVATE -static)
+endif ()
+#set_target_properties(pylib PROPERTIES CMAKE_C_STANDARD 90)
 set_target_properties(pylib PROPERTIES PREFIX "")
-set_target_properties(pylib PROPERTIES SUFFIX ".pyd")
+
