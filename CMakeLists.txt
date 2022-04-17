@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(pylib)
-set(CMAKE_CXX_STANDARD 17)
-set (Python3_FIND_ABI "ON" "ON" "ON")
-find_package(Python REQUIRED COMPONENTS Development Interpreter )
+#set(CMAKE_CXX_STANDARD 17)
+set(Python3_FIND_ABI "ON" "ON" "ON")
+find_package(Python REQUIRED COMPONENTS Development Interpreter)
 
 set(DETEX_SOURCES
         lib/detex/bits.c
@@ -36,27 +36,31 @@ set(LZ4_SOURCES
 
 set(PYLIB_SOURCES
         src/main.cpp
+        src/lz4_module/lz4_decoder.cpp
         src/compressed_mesh_module/compressed_index_buffer.cpp
         src/compressed_mesh_module/compressed_vertex_buffer.cpp
         src/texture_module/texture_decompression.cpp
         )
 
 add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES})
-target_compile_definitions(pylib
-        PRIVATE
-        Py_LIMITED_API
-        )
+message(${CMAKE_BUILD_TYPE})
+
+if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(pylib PRIVATE Py_LIMITED_API=0x03070000)
+endif (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+
+
+
 target_include_directories(pylib PRIVATE ${Python_INCLUDE_DIRS} include lib/detex lib/lz4/lib lib/span/include/tcb)
 if (MSVC)
     target_link_directories(pylib PUBLIC ${Python_LIBRARY_DIRS})
     target_link_libraries(pylib PRIVATE python3)
     target_compile_definitions(pylib PUBLIC _CRT_SECURE_NO_WARNINGS)
-    target_compile_options(pylib PUBLIC /EHs)
+    target_compile_options(pylib PUBLIC /EHs /std:c++latest /Zc:strictStrings-)
     set_target_properties(pylib PROPERTIES SUFFIX ".pyd")
-else()
+else ()
     target_link_libraries(pylib PRIVATE ${Python_LIBRARIES})
-#    target_link_options(pylib PRIVATE -static)
+    #    target_link_options(pylib PRIVATE -static)
 endif ()
-#set_target_properties(pylib PROPERTIES CMAKE_C_STANDARD 90)
 set_target_properties(pylib PROPERTIES PREFIX "")
 

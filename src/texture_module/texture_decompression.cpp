@@ -1,10 +1,10 @@
 //
 // Created by MED45 on 08.03.2022.
 //
-#include <texture_compression.h>
 #include <detex.h>
+#include <texture_module.h>
 
-static void image_flip(uint32_t *data, uint32_t width, uint32_t height) {
+void image_flip(uint32_t *data, uint32_t width, uint32_t height) {
   for (uint32_t y = 0; y < height / 2; y++) {
     for (uint32_t x = 0; x < width; x++) {
       uint32_t *a = &data[y * width + x];
@@ -16,7 +16,7 @@ static void image_flip(uint32_t *data, uint32_t width, uint32_t height) {
   }
 }
 
-static void image_decompress(PyObject *src, PyObject *dst, int32_t width,
+void image_decompress(PyObject *src, PyObject *dst, int32_t width,
                              int32_t height, uint32_t fmt, uint32_t flip) {
   auto *src_buf = (uint8_t *)PyBytes_AsString(src);
   auto *dst_buf = (uint8_t *)PyBytes_AsString(dst);
@@ -46,7 +46,7 @@ static void image_decompress(PyObject *src, PyObject *dst, int32_t width,
   }
 }
 
-static PyObject *module_decompress(PyObject *args, uint32_t fmt) {
+PyObject *module_decompress(PyObject *args, uint32_t fmt) {
   PyObject *src;
   PyObject *dst;
   int32_t width;

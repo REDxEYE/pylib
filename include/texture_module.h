@@ -2,8 +2,8 @@
 // Created by MED45 on 08.03.2022.
 //
 
-#ifndef PYLIB_TEXTURE_COMPRESSION_H
-#define PYLIB_TEXTURE_COMPRESSION_H
+#ifndef PYLIB_TEXTURE_MODULE_H
+#define PYLIB_TEXTURE_MODULE_H
 
 #include <Python.h>
 
@@ -34,4 +34,4 @@ static PyMethodDef texture_methods[] = {
 static PyModuleDef texture_module = {PyModuleDef_HEAD_INIT, "pylib.texture",
                                      nullptr, -1, texture_methods};
 
-#endif // PYLIB_TEXTURE_COMPRESSION_H
+#endif // PYLIB_TEXTURE_MODULE_H
