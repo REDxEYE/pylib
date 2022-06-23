@@ -43,7 +43,7 @@ set(PYLIB_SOURCES
         )
 
 add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES})
-message(${CMAKE_BUILD_TYPE})
+message("${CMAKE_BUILD_TYPE}")
 
 if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(pylib PRIVATE Py_LIMITED_API=0x03070000)
