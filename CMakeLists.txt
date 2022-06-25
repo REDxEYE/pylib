@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(pylib)
-#set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(Python3_FIND_ABI "ON" "ON" "ON")
 find_package(Python REQUIRED COMPONENTS Development Interpreter)
 
@@ -43,7 +43,6 @@ set(PYLIB_SOURCES
         )
 
 add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES})
-message("${CMAKE_BUILD_TYPE}")
 
 if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(pylib PRIVATE Py_LIMITED_API=0x03070000)
