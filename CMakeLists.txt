@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(pylib)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 11)
 set(Python3_FIND_ABI "ON" "ON" "ON")
 find_package(Python REQUIRED COMPONENTS Development Interpreter)
 
@@ -40,6 +40,14 @@ set(PYLIB_SOURCES
         src/compressed_mesh_module/compressed_index_buffer.cpp
         src/compressed_mesh_module/compressed_vertex_buffer.cpp
         src/texture_module/texture_decompression.cpp
+        src/texture_module/bc1.cpp
+        src/texture_module/bc2.cpp
+        src/texture_module/bc3.cpp
+        src/texture_module/bc4.cpp
+        src/texture_module/bc5.cpp
+        #src/texture_module/bc6.cpp
+        #src/texture_module/bc7.cpp
+        src/texture_module/rgb.cpp
         )
 
 add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES})

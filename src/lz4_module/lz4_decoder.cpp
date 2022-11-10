@@ -60,13 +60,13 @@ void prepare(LZ4ChainDecoder* self, size_t block_size) {
     self->output_index = dict_size;
 }
 
-ssize_t decode(LZ4ChainDecoder* self, const uint8_t* src, size_t src_size, size_t block_size) {
+int64_t decode(LZ4ChainDecoder* self, const uint8_t* src, size_t src_size, size_t block_size) {
     if (block_size <= 0) {
         block_size = self->block_size;
     }
     prepare(self, block_size);
     uint8_t* tmp = self->output_buffer + self->output_index;
-    ssize_t decoded_size = LZ4_decompress_safe_continue(self->stream_state, (const char*) src, (char*) tmp,
+    int64_t decoded_size = LZ4_decompress_safe_continue(self->stream_state, (const char*) src, (char*) tmp,
                                                         (int) src_size, (int) block_size);
     if (decoded_size > 0) {
         self->output_index += decoded_size;
@@ -74,7 +74,7 @@ ssize_t decode(LZ4ChainDecoder* self, const uint8_t* src, size_t src_size, size_
     return decoded_size;
 }
 
-bool drain(LZ4ChainDecoder* self, uint8_t* dst, ssize_t offset, size_t size) {
+bool drain(LZ4ChainDecoder* self, uint8_t* dst, int64_t offset, size_t size) {
     offset += self->output_index;
     if (offset < 0 || size < 0 || offset + size > self->output_index) {
         PyErr_Format(PyExc_ValueError,
@@ -87,7 +87,7 @@ bool drain(LZ4ChainDecoder* self, uint8_t* dst, ssize_t offset, size_t size) {
 }
 
 bool decode_and_drain(LZ4ChainDecoder* self, const uint8_t* src, size_t src_size, uint8_t* dst, size_t dst_size) {
-    ssize_t decoded = decode(self, src, src_size, dst_size);
+    int64_t decoded = decode(self, src, src_size, dst_size);
     if (decoded <= 0 || dst_size < decoded) {
         PyErr_Format(PyExc_ValueError, "Received error code from LZ4: %lli", decoded);
         return false;
