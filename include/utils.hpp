@@ -9,10 +9,10 @@
 #include <span.hpp>
 
 #ifdef __GNUC__
-#define dll_export __attribute__((dllexport))
+#define PYLIB_DLL_EXPORT __attribute__((dllexport))
 #else
-#define dll_export __declspec(dllexport)
-#define dll_import __declspec(dllimport)
+#define PYLIB_DLL_EXPORT __declspec(dllexport)
+#define PYLIB_DLL_IMPORT __declspec(dllimport)
 #endif
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))

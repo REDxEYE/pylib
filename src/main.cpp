@@ -7,8 +7,8 @@
 
 extern "C" {
 
-dll_export bool decode_vertex_buffer(char *src, size_t src_size, char *dst, size_t dst_size, int32_t vertex_size,
-                          int32_t vertex_count) {
+PYLIB_DLL_EXPORT bool decode_vertex_buffer(char *src, size_t src_size, char *dst, size_t dst_size, int32_t vertex_size,
+                                           int32_t vertex_count) {
 
     std::vector<uint8_t> buffer;
     buffer.assign(src, src + src_size);
@@ -21,8 +21,8 @@ dll_export bool decode_vertex_buffer(char *src, size_t src_size, char *dst, size
     return true;
 }
 
-dll_export bool decode_index_buffer(char *src, size_t src_size, char *dst, size_t dst_size, int32_t index_size,
-                         int32_t index_count) {
+PYLIB_DLL_EXPORT bool decode_index_buffer(char *src, size_t src_size, char *dst, size_t dst_size, int32_t index_size,
+                                          int32_t index_count) {
 
     std::vector<uint8_t> buffer;
     buffer.assign(src, src + src_size);

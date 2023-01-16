@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 project(pylib)
 set(CMAKE_CXX_STANDARD 11)
 find_package(Threads REQUIRED)
@@ -23,7 +23,7 @@ set(DETEX_SOURCES
         lib/detex/hdr.c
         lib/detex/ktx.c
         lib/detex/misc.c
-        lib/detex/raw.c
+        #        lib/detex/raw.c
         )
 
 set(LZ4_SOURCES
@@ -35,29 +35,40 @@ set(LZ4_SOURCES
 
 set(PYLIB_SOURCES
         src/main.cpp
-        src/lz4_module/lz4_decoder.cpp
+        src/lz4_module.cpp
         src/compressed_mesh_module/compressed_index_buffer.cpp
         src/compressed_mesh_module/compressed_vertex_buffer.cpp
-        src/texture_module/texture_decompression.cpp
-        #        src/texture_module/bc6.cpp
-        include/texture_decompression.h)
+        src/texture_decompression.cpp
+        include/texture_decompression.h src/zstd_module.cpp
+        )
+
+
 
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "-static")
 
-add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES})
+add_subdirectory(cmake_files/lzham_decomp)
+add_subdirectory(cmake_files/lzham_comp)
+
+set(PYLIB_ROOT_DIR ${CMAKE_SOURCE_DIR})
+set(LIBRARY_DIR ${CMAKE_SOURCE_DIR}/lib/zstd/lib)
+list(APPEND CMAKE_MODULE_PATH ${PYLIB_ROOT_DIR}/lib/zstd/build/cmake/CMakeModules)
+SET(ZSTD_BUILD_SHARED OFF)
+SET(ZSTD_BUILD_STATIC ON)
+add_subdirectory(lib/zstd/build/cmake/lib)
 
 
+add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES} ${ZSTD_SOURCES} lib/lzham_codec/lzhamdll/lzham_api.cpp)
 
-
-target_include_directories(pylib PRIVATE include lib/detex lib/lz4/lib lib/span/include/tcb)
+target_include_directories(pylib PUBLIC include lib/detex lib/lz4/lib lib/span/include/tcb lib/zstd/lib lib/lzham_codec/lzhamdecomp lib/lzham_codec/lzhamcomp lib/lzham_codec/include)
 if (MSVC)
-    target_link_libraries(pylib Threads::Threads)
+    add_compile_definitions(LZHAM_EXPORTS ZSTD_DLL_EXPORT=1)
+    target_link_libraries(pylib PUBLIC lzhamdecomp lzhamcomp libzstd_static)
     target_compile_definitions(pylib PUBLIC _CRT_SECURE_NO_WARNINGS)
     target_compile_options(pylib PUBLIC /EHs /std:c++latest /Zc:strictStrings-)
-    target_link_libraries(pylib -static)
 else ()
-    target_link_libraries(pylib PRIVATE -static-libgcc -static-libstdc++)
+#    add_compile_definitions(LZHAM_EXPORTS)
+    target_link_libraries(pylib PUBLIC lzhamdecomp lzhamcomp libzstd_static -static-libgcc -static-libstdc++)
 endif ()
 set_target_properties(pylib PROPERTIES PREFIX "")
 

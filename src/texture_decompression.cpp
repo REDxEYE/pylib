@@ -2,8 +2,8 @@
 // Created by MED45 on 08.03.2022.
 //
 
-#include <texture_decompression.h>
-#include <detex.h>
+#include "texture_decompression.h"
+#include "detex.h"
 
 void image_flip(uint32_t *data, uint32_t width, uint32_t height) {
     for (uint32_t y = 0; y < height / 2; y++) {
@@ -17,8 +17,8 @@ void image_flip(uint32_t *data, uint32_t width, uint32_t height) {
     }
 }
 
-dll_export bool image_decompress(char *src, size_t src_size, char *dst, size_t dst_size, int32_t width,
-                                 int32_t height, uint32_t input_fmt, uint32_t output_fmt, uint32_t flip) {
+PYLIB_DLL_EXPORT bool image_decompress(char *src, size_t src_size, char *dst, size_t dst_size, int32_t width,
+                                       int32_t height, uint32_t input_fmt, uint32_t output_fmt, uint32_t flip) {
     detexTexture texture;
     if (src == nullptr)return false;
     if (dst == nullptr)return false;
