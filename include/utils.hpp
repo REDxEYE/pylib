@@ -4,7 +4,6 @@
 
 #ifndef SOURCEIOTEXTUREUTILS_UTILS_HPP
 
-#include <emmintrin.h>
 #include <limits>
 #define TCB_SPAN_NO_CONTRACT_CHECKING
 #include <span.hpp>
