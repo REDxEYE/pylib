@@ -1,6 +1,3 @@
-//
-// Created by MED45 on 08.03.2022.
-//
 #define BCDEC_IMPLEMENTATION
 
 #include <bcdec.h>

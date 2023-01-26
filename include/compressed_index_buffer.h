@@ -1,6 +1,3 @@
-//
-// Created by MED45 on 09.04.2020.
-//
 /*
 MIT License
 Copyright (c) 2020 Florian Weischer

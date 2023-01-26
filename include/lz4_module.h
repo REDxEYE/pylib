@@ -1,7 +1,3 @@
-//
-// Created by MED45 on 19.03.2022.
-//
-
 #ifndef PYLIB_LZ4_MODULE_HPP
 #define PYLIB_LZ4_MODULE_HPP
 

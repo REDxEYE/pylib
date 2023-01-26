@@ -1,7 +1,3 @@
-//
-// Created by MED45 on 09.04.2020.
-//
-
 #ifndef COMPRESSED_VERTEX_BUFFER_H
 #define COMPRESSED_VERTEX_BUFFER_H
 

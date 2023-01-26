@@ -1,6 +1,3 @@
-//
-// Created by i.getsman on 30.03.2020.
-//
 
 #ifndef SOURCEIOTEXTUREUTILS_UTILS_HPP
 
