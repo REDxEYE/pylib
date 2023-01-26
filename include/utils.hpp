@@ -8,12 +8,19 @@
 #define TCB_SPAN_NO_CONTRACT_CHECKING
 #include <span.hpp>
 
-#ifdef __GNUC__
-#define PYLIB_DLL_EXPORT __attribute__((dllexport))
-#else
-#define PYLIB_DLL_EXPORT __declspec(dllexport)
-#define PYLIB_DLL_IMPORT __declspec(dllimport)
-#endif
+
+#	ifdef __WINDOWS__
+#		define PYLIB_DLL_EXPORT __declspec(dllexport)
+#	else
+#		define PYLIB_DLL_EXPORT __attribute__((visibility("default")))
+#	endif
+
+//#ifdef __GNUC__
+//#define PYLIB_DLL_EXPORT __attribute__((dllexport))
+//#else
+//#define PYLIB_DLL_EXPORT __declspec(dllexport)
+//#define PYLIB_DLL_IMPORT __declspec(dllimport)
+//#endif
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

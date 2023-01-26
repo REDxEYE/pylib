@@ -39,7 +39,7 @@ set(PYLIB_SOURCES
         src/compressed_mesh_module/compressed_index_buffer.cpp
         src/compressed_mesh_module/compressed_vertex_buffer.cpp
         src/texture_decompression.cpp
-        include/texture_decompression.h src/zstd_module.cpp
+        src/zstd_module.cpp
         )
 
 
@@ -60,7 +60,7 @@ add_subdirectory(lib/zstd/build/cmake/lib)
 
 add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES} ${ZSTD_SOURCES} lib/lzham_codec/lzhamdll/lzham_api.cpp)
 
-target_include_directories(pylib PUBLIC include lib/detex lib/lz4/lib lib/span/include/tcb lib/zstd/lib lib/lzham_codec/lzhamdecomp lib/lzham_codec/lzhamcomp lib/lzham_codec/include)
+target_include_directories(pylib PUBLIC include lib/detex lib/bcdec lib/lz4/lib lib/span/include/tcb lib/zstd/lib lib/lzham_codec/lzhamdecomp lib/lzham_codec/lzhamcomp lib/lzham_codec/include)
 if (MSVC)
     add_compile_definitions(LZHAM_EXPORTS ZSTD_DLL_EXPORT=1)
     target_link_libraries(pylib PUBLIC lzhamdecomp lzhamcomp libzstd_static)

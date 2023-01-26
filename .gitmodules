@@ -13,3 +13,6 @@
 [submodule "lib/zstd"]
 	path = lib/zstd
 	url = https://github.com/facebook/zstd
+[submodule "lib/bcdec"]
+	path = lib/bcdec
+	url = https://github.com/iOrange/bcdec
