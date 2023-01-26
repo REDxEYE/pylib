@@ -6,7 +6,7 @@
 #include <span.hpp>
 
 
-#	ifdef __WINDOWS__
+#	ifdef _MSC_VER
 #		define PYLIB_DLL_EXPORT __declspec(dllexport)
 #	else
 #		define PYLIB_DLL_EXPORT __attribute__((visibility("default")))
