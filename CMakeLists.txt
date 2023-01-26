@@ -40,8 +40,9 @@ set(PYLIB_SOURCES
         src/compressed_mesh_module/compressed_vertex_buffer.cpp
         src/texture_decompression.cpp
         src/zstd_module.cpp
-        )
-
+        src/vtflib/vtflib.cpp
+        src/vtflib_module.cpp
+        src/common.cpp)
 
 
 set(BUILD_SHARED_LIBS OFF)
@@ -67,7 +68,7 @@ if (MSVC)
     target_compile_definitions(pylib PUBLIC _CRT_SECURE_NO_WARNINGS)
     target_compile_options(pylib PUBLIC /EHs /std:c++latest /Zc:strictStrings-)
 else ()
-#    add_compile_definitions(LZHAM_EXPORTS)
+    #    add_compile_definitions(LZHAM_EXPORTS)
     target_link_libraries(pylib PUBLIC lzhamdecomp lzhamcomp libzstd_static -static-libgcc -static-libstdc++)
 endif ()
 set_target_properties(pylib PROPERTIES PREFIX "")
