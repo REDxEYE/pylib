@@ -23,9 +23,9 @@ VTFImageFormat vtf_image_format(VTFFile *vfile) {
 
 bool vtf_get_as_rgba8888(VTFFile *vfile, char *dst, size_t dst_size, bool flip) {
     size_t src_size;
-    uint8_t *raw_pixel_data = vfile->get_highres_image(src_size);
     uint32_t width = vfile->width();
     uint32_t height = vfile->height();
+    uint8_t *raw_pixel_data = vfile->get_highres_image(src_size);
     switch (vfile->image_format()) {
         case VTFImageFormat::DXT1:
             image_decode_bcn((char *) raw_pixel_data, src_size, dst, dst_size, (int32_t) width, (int32_t) height,
@@ -86,7 +86,7 @@ bool vtf_get_as_rgba8888(VTFFile *vfile, char *dst, size_t dst_size, bool flip) 
         case VTFImageFormat::NV_NULL:
         case VTFImageFormat::COUNT:
         case VTFImageFormat::NONE:
-            memcpy((char*)dst, (char*)raw_pixel_data, dst_size);
+            memcpy((char *) dst, (char *) raw_pixel_data, dst_size);
             break;
     }
     return true;

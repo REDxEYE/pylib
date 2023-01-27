@@ -25,16 +25,6 @@ static uint8_t block_sizes[(uint32_t) VTFImageFormat::COUNT]{
         4, 2, 2, 2, 8, 2, 2, 4, 8, 8, 4, 4, 12, 16, 0, 0,
         0, 0, 0, 0, 0, 16, 8
 };
-static uint8_t channels[(uint32_t) VTFImageFormat::COUNT]{
-        4, 4, 3, 3, 3, 1, 2, 1, 1, 3, 3, 4, 4, 3, 4, 4, 4,
-        3, 4, 4, 4, 4, 2, 4, 4, 4, 4, 1, 3, 4, 0, 0, 0, 0, 0,
-        0, 0, 4, 4,
-};
-static uint8_t item_sizes[(uint32_t) VTFImageFormat::COUNT]{
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 0, 0,
-        0, 0, 0, 0, 0, 1, 1
-};
 
 uint8_t *VTFFile::get_highres_image(size_t &buffer_size) {
     uint8_t *raw_pixel_data = nullptr;
@@ -58,8 +48,6 @@ uint8_t *VTFFile::get_highres_image(size_t &buffer_size) {
     uint32_t mip_count = header70()->mip_count;
     uint32_t min_block_size = 1;
     VTFImageFormat image_format = header70()->image_format;
-    uint8_t item_size = item_sizes[(uint32_t) image_format];
-    uint8_t channel_count = channels[(uint32_t) image_format];
     uint8_t block_size = block_sizes[(uint32_t) image_format];
     uint32_t w = width();
     uint32_t h = height();

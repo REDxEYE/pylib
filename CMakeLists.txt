@@ -42,34 +42,38 @@ set(PYLIB_SOURCES
         src/zstd_module.cpp
         src/vtflib/vtflib.cpp
         src/vtflib_module.cpp
-        src/common.cpp)
+        src/common.cpp
+        lib/lzham_codec/lzhamdll/lzham_api.cpp
+#        src/lzham_module.cpp
+        )
 
+set(CMAKE_INSTALL_INCLUDEDIR ${CMAKE_SOURCE_DIR}/trash)
+#set(BUILD_SHARED_LIBS OFF)
+#set(CMAKE_EXE_LINKER_FLAGS "-static")
 
-set(BUILD_SHARED_LIBS OFF)
-set(CMAKE_EXE_LINKER_FLAGS "-static")
-
-add_subdirectory(cmake_files/lzham_decomp)
-add_subdirectory(cmake_files/lzham_comp)
+add_subdirectory(lib/lzham_codec)
 
 set(PYLIB_ROOT_DIR ${CMAKE_SOURCE_DIR})
 set(LIBRARY_DIR ${CMAKE_SOURCE_DIR}/lib/zstd/lib)
 list(APPEND CMAKE_MODULE_PATH ${PYLIB_ROOT_DIR}/lib/zstd/build/cmake/CMakeModules)
 SET(ZSTD_BUILD_SHARED OFF)
 SET(ZSTD_BUILD_STATIC ON)
-add_subdirectory(lib/zstd/build/cmake/lib)
+add_subdirectory(lib/zstd/build/cmake/lib EXCLUDE_FROM_ALL)
 
+add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES} ${ZSTD_SOURCES})
 
-add_library(pylib SHARED ${PYLIB_SOURCES} ${DETEX_SOURCES} ${LZ4_SOURCES} ${ZSTD_SOURCES} lib/lzham_codec/lzhamdll/lzham_api.cpp)
+target_include_directories(pylib PRIVATE include lib/detex lib/bcdec lib/lz4/lib lib/span/include/tcb lib/zstd/lib lib/lzham_codec/lzhamdecomp lib/lzham_codec/lzhamcomp lib/lzham_codec/include)
+target_compile_definitions(pylib PRIVATE LZHAM_EXPORTS)
 
-target_include_directories(pylib PUBLIC include lib/detex lib/bcdec lib/lz4/lib lib/span/include/tcb lib/zstd/lib lib/lzham_codec/lzhamdecomp lib/lzham_codec/lzhamcomp lib/lzham_codec/include)
+target_link_libraries(pylib PUBLIC lzhamdecomp_static lzhamcomp_static lzhamdll_static libzstd_static)
+
 if (MSVC)
-    add_compile_definitions(LZHAM_EXPORTS ZSTD_DLL_EXPORT=1)
-    target_link_libraries(pylib PUBLIC lzhamdecomp lzhamcomp libzstd_static)
-    target_compile_definitions(pylib PUBLIC _CRT_SECURE_NO_WARNINGS)
-    target_compile_options(pylib PUBLIC /EHs /std:c++latest /Zc:strictStrings-)
+    target_compile_definitions(pylib PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_options(pylib PRIVATE /EHs /std:c++latest /Zc:strictStrings-)
 else ()
-    #    add_compile_definitions(LZHAM_EXPORTS)
-    target_link_libraries(pylib PUBLIC lzhamdecomp lzhamcomp libzstd_static -static-libgcc -static-libstdc++)
+    target_link_libraries(pylib PRIVATE -static-libgcc -static-libstdc++)
 endif ()
 set_target_properties(pylib PROPERTIES PREFIX "")
 
+add_executable(tester src/vtflib/vtflib.cpp src/vtflib_tester.cpp src/vtflib_module.cpp src/texture_decompression.cpp ${DETEX_SOURCES} src/common.cpp)
+target_include_directories(tester PUBLIC include lib/detex lib/bcdec lib/lz4/lib lib/span/include/tcb lib/zstd/lib lib/lzham_codec/lzhamdecomp lib/lzham_codec/lzhamcomp lib/lzham_codec/include)

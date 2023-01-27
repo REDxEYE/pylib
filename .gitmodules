@@ -9,7 +9,7 @@
 	url = https://github.com/tcbrindle/span
 [submodule "lib/lzham_codec"]
 	path = lib/lzham_codec
-	url = https://github.com/richgel999/lzham_codec
+	url = https://github.com/REDxEYE/lzham_codec
 [submodule "lib/zstd"]
 	path = lib/zstd
 	url = https://github.com/facebook/zstd
