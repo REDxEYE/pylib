@@ -8,7 +8,7 @@
 
 ## How to build:
 
-### Linux / Windows(mingw64)
+### Linux / Windows(mingw64) (steps by [@Architector4](https://www.github.com/Architector4)) 
 1. git clone --recurse-submodules -j8 'https://github.com/REDxEYE/pylib.git'
 2. cd pylib
 3. cmake .
