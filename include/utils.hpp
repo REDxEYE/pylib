@@ -23,7 +23,7 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 inline long long round_up(long long value, long long step) {
-  return (value + step - 1) / (step * step);
+  return ((value + step - 1) / step) * step;
 }
 static tcb::span<uint8_t>
 slice(const tcb::span<uint8_t> &data, uint32_t start,

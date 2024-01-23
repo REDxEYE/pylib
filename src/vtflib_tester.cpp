@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
 //            R"(C:\PYTHON_PROJECTS\SourceIOPlugin\test_data\materials\models\characters\kasumi\kas_face_base.vtf)",
 //            R"(C:\Program Files (x86)\Steam\steamapps\common\Portal 2\portal2\materials\metal\underground_metal_corrugated001..vtf)",
 //            R"(C:\Program Files (x86)\Steam\steamapps\common\Half-Life 2\hl2\materials\brick\brickfloor001a.vtf)",
-            R"(C:\Program Files (x86)\Steam\steamapps\common\SourceFilmmaker\game\tf\materials\skybox\sky_badlands_01dn.vtf)",
+            R"(C:\PYTHON_PROJECTS\SourceIOPlugin\test_data\umbra\materials\models\neverstops577\warframe\warframes\excalibur\umbra\armor.vtf)",
             "rb");
     if (file == nullptr) {
         fprintf(stderr, "Failed to open file\n");
@@ -31,16 +31,16 @@ int main(int argc, char **argv) {
     printf("%i\n", vfile.image_format());
     size_t buffer_size;
 
-    char *image_data = static_cast<char *>(malloc(vfile.width() * vfile.height() * 3));
+    char *image_data = static_cast<char *>(malloc(vfile.width() * vfile.height() * 4));
 
-    vtf_get_as_rgba8888(&vfile, image_data, vfile.width() * vfile.height() * 3, false);
+    vtf_get_as_rgba8888(&vfile, image_data, vfile.width() * vfile.height() * 4, false);
 
     if (image_data == nullptr) {
         fprintf(stderr, "No high-res image resource!");
         delete fdata;
         return -1;
     }
-    stbi_write_png("test.png", vfile.width(), vfile.height(), 3, image_data, vfile.width() * 3);
+    stbi_write_png("test.png", vfile.width(), vfile.height(), 4, image_data, vfile.width() * 4);
 
     delete fdata;
 }

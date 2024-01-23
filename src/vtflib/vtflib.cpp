@@ -62,7 +62,7 @@ uint8_t *VTFFile::get_highres_image(size_t &buffer_size) {
 
     for (uint32_t i = mip_count - 1; i > 0; i--) {
         size_t mip_size = (MAX((w >> i), min_block_size) * MAX((h >> i), min_block_size) * block_size) /
-                          (min_block_size * min_block_size);
+                          (min_block_size * min_block_size)*header70()->frames;
         raw_pixel_data += mip_size;
 
     }

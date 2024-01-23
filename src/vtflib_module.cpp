@@ -96,3 +96,6 @@ bool vtf_get_as_rgba8888(VTFFile *vfile, char *dst, size_t dst_size, bool flip) 
 void vtf_destroy(VTFFile *vfile) {
     delete vfile;
 }
+void vtf_free(char* buff) {
+    free(buff);
+}

@@ -11,7 +11,7 @@ PYLIB_DLL_EXPORT int lz4_decompress(char *src, int src_size, char *dst, int dst_
         return real_decompressed_size;
     }
     if (real_decompressed_size != dst_size) {
-        fprintf(stderr,"Failed to decompress buffer\n");
+        fprintf(stderr, "Failed to decompress buffer\n");
         return 0;
     }
     return real_decompressed_size;
@@ -23,7 +23,7 @@ PYLIB_DLL_EXPORT int lz4_compress(char *src, int src_size, char *dst, int dst_si
         return real_compressed_size;
     }
     if (real_compressed_size != dst_size) {
-        fprintf(stderr,"Failed to decompress buffer\n");
+        fprintf(stderr, "Failed to decompress buffer\n");
         return 0;
     }
     return real_compressed_size;
@@ -40,7 +40,7 @@ void prepare(LZ4ChainDecoder *self, size_t block_size) {
     self->output_index = dict_size;
 }
 
-int64_t decode(LZ4ChainDecoder *self, const uint8_t *src, size_t src_size, size_t block_size) {
+int64_t decode(LZ4ChainDecoder *self, const uint8_t *src, size_t src_size, size_t block_size = 0) {
     if (block_size <= 0) {
         block_size = self->block_size;
     }
@@ -57,25 +57,29 @@ int64_t decode(LZ4ChainDecoder *self, const uint8_t *src, size_t src_size, size_
 bool drain(LZ4ChainDecoder *self, uint8_t *dst, int64_t offset, size_t size) {
     offset += self->output_index;
     if (offset < 0 || size < 0 || offset + size > self->output_index) {
-        fprintf(stderr,"Invalid offset(%lli), size(%lli) or offset+size > %u\n",
-               offset, size, self->output_index);
+        fprintf(stderr, "Invalid offset(%lli), size(%zu) or offset+size > %u\n",
+                offset, size, self->output_index);
         return false;
     }
     memmove(dst, self->output_buffer + offset, size);
     return true;
 }
 
-bool decode_and_drain(LZ4ChainDecoder *self, const uint8_t *src, size_t src_size, uint8_t *dst, size_t dst_size) {
-    int64_t decoded = decode(self, src, src_size, dst_size);
-    if (decoded <= 0 || dst_size < decoded) {
-        fprintf(stderr,"Received error code from LZ4: %lli\n", decoded);
+bool decode_and_drain(LZ4ChainDecoder *self, const uint8_t *src, size_t src_size, uint8_t *dst, size_t *dst_size) {
+    int64_t decoded = decode(self, src, src_size);
+    if (decoded <= 0 || decoded > *dst_size) {
+        fprintf(stderr, "Decode failed. Received error code from LZ4: %lli\n", decoded);
         return false;
     }
+    if (decoded < *dst_size) {
+        *dst_size = decoded;
+    }
     return drain(self, dst, -decoded, decoded);
-};
+}
 
 
-PYLIB_DLL_EXPORT bool LZ4ChainDecoder_decompress(LZ4ChainDecoder *self, char *src, size_t data_size, char *dst, size_t decompressed_size) {
+PYLIB_DLL_EXPORT bool
+LZ4ChainDecoder_decompress(LZ4ChainDecoder *self, char *src, size_t data_size, char *dst, size_t *decompressed_size) {
     auto *src_buf = (uint8_t *) src;
     auto *dst_buf = (uint8_t *) dst;
 
