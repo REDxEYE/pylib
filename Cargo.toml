@@ -16,7 +16,7 @@ path = "src/main.rs"
 [dependencies]
 pyo3 = { version = "0.21.2", features = ["abi3", "experimental-inspect", "abi3-py37", "extension-module"] }
 numpy = { version = "0.21.0", features = ["half"] }
-lzham-alpha-sys = "0.1.1"
+#lzham-alpha-sys = "0.1.1"
 lz4 = "1.24.0"
 zstd = "0.13.1"
 binread = "2.2.0"
