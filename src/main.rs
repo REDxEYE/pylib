@@ -62,7 +62,6 @@ fn test_vpk() -> io::Result<()> {
 }
 
 fn main() -> io::Result<()> {
-    optick::start_capture();
     let start = Instant::now();
 
     test_vpk()?;
@@ -70,6 +69,5 @@ fn main() -> io::Result<()> {
     let duration = start.elapsed();
     println!("Time taken: {} milliseconds", duration.as_micros() as f32 / 1000f32);
 
-    // optick::stop_capture("test");
     Ok(())
 }

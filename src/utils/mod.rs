@@ -12,7 +12,6 @@ pub use comp_ibuf::compressed_index_buffer::decode_index_buffer;
 
 
 pub fn read_nullstring<R: BufRead>(reader: &mut R) -> io::Result<String> {
-    optick::event!("Read null string");
     let mut buf = vec![];
     reader.read_until(0, &mut buf)?;
     buf.remove(buf.len()-1);

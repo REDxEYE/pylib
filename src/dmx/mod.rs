@@ -32,7 +32,6 @@ pub fn load_dmx<P: AsRef<Path>>(filepath: P) -> Result<Dmx, DmxError> {
 }
 
 pub fn read_dmx<R: BufRead + Seek>(reader: &mut R) -> Result<Dmx, DmxError> {
-    optick::event!();
     let mut header = Vec::new();
     reader.read_until(0u8, &mut header)?;
     let header_str = String::from_utf8(header).map_err(|_| { DmxError::FailedToReadHeader })?;

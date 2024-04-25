@@ -25,27 +25,21 @@ pub struct DmxBinaryV4 {}
 pub struct DmxBinaryV5 {}
 
 fn read_i32_array<R: Read + Seek>(reader: &mut R) -> Result<Vec<i32>, DmxError> {
-    optick::event!();
     let count = reader.read_u32::<LE>()?;
-    optick::tag!("Count", count);
     let mut items = vec![0i32; count as usize];
     reader.read_i32_into::<LE>(items.as_mut_slice())?;
     Ok(items)
 }
 
 fn read_f32_array<R: Read + Seek>(reader: &mut R) -> Result<Vec<f32>, DmxError> {
-    optick::event!();
     let count = reader.read_u32::<LE>()?;
-    optick::tag!("Count", count);
     let mut items = vec![0f32; count as usize];
     reader.read_f32_into::<LE>(items.as_mut_slice())?;
     Ok(items)
 }
 
 fn read_u8_array<R: Read + Seek>(reader: &mut R) -> Result<Vec<u8>, DmxError> {
-    optick::event!();
     let count = reader.read_u32::<LE>()?;
-    optick::tag!("Count", count);
     let mut items = vec![0u8; count as usize];
     if count > 0 {
         reader.read_exact(items.as_mut_slice())?;
@@ -57,10 +51,8 @@ fn read_u8_array<R: Read + Seek>(reader: &mut R) -> Result<Vec<u8>, DmxError> {
 
 impl DmxBinaryV5 {
     fn read_element_prop<R: BufRead + Seek, S: StringDictionary<R>>(string_dictionary: &S, reader: &mut R) -> Result<(Rc<str>, DmPropValue), DmxError> {
-        optick::event!();
         let attrib_name = string_dictionary.read_string(reader)?;
         let attrib_type = reader.read_u8()?;
-        optick::tag!("Type", attrib_type as u32);
         let value = match attrib_type {
             1 => Ok(DmPropValue::ElementRef(reader.read_i32::<LE>()?)),
             2 => Ok(DmPropValue::Int32(reader.read_i32::<LE>()?)),
@@ -112,19 +104,16 @@ impl DmxBinaryV5 {
 
 impl serializer::DmxDeserialize for DmxBinaryV5 {
     fn deserialize<R: BufRead + Seek>(reader: &mut R) -> Result<Dmx, DmxError> {
-        optick::event!();
         let string_dict = StringDictionaryV5::from_file(reader)?;
         let element_count = reader.read_le::<u32>()?;
         let mut elements = Vec::with_capacity(element_count as usize);
         for _ in 0..element_count {
-            optick::event!("Read element header");
             let dm_type_name = string_dict.read_string(reader)?;
             let dm_name = string_dict.read_string(reader)?;
             let dm_uuid = Uuid::from_u128(reader.read_be()?);
             elements.push(Rc::new(RefCell::new(DmElement::new_from_rc(dm_name, dm_type_name, dm_uuid))));
         }
         for element in elements.iter() {
-            optick::event!("Read element value");
             let prop_count = reader.read_le::<u32>()?;
             for _ in 0..prop_count {
                 let (prop_name, prop_value) = Self::read_element_prop(&string_dict, reader)?;
@@ -133,7 +122,6 @@ impl serializer::DmxDeserialize for DmxBinaryV5 {
         }
         let new_elements = elements.clone();
         for element in new_elements.iter() {
-            optick::event!("Relink elements");
             for property in element.borrow_mut().properties.iter_mut() {
                 match *property.1 { // Obtain a mutable reference to the property value
                     DmPropValue::ElementRef(ref mut index) => {

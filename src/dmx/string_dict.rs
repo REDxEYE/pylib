@@ -37,7 +37,6 @@ impl StringDictionaryV1 {
 
 impl<R: BufRead + Seek> StringDictionary<R> for StringDictionaryV1 {
     fn read_string(&self, reader: &mut R) -> Result<Rc<str>, DmxError> {
-        optick::event!();
         Ok(Rc::from(read_nullstring(reader)?))
     }
 }
@@ -55,7 +54,6 @@ impl StringDictionaryV2 {
 
 impl<R: BufRead + Seek> StringDictionary<R> for StringDictionaryV2 {
     fn read_string(&self, reader: &mut R) -> Result<Rc<str>, DmxError> {
-        optick::event!();
         let string_id = reader.read_u16::<LE>()? as usize;
         if string_id >= self.strings.len() {
             return Err(DmxError::StringIndexOutOfRange(string_id, self.strings.len()));
@@ -77,7 +75,6 @@ impl StringDictionaryV4 {
 
 impl<R: BufRead + Seek> StringDictionary<R> for StringDictionaryV4 {
     fn read_string(&self, reader: &mut R) -> Result<Rc<str>, DmxError> {
-        optick::event!();
         let string_id = reader.read_u16::<LE>()? as usize;
         if string_id >= self.strings.len() {
             return Err(DmxError::StringIndexOutOfRange(string_id, self.strings.len()));
@@ -99,7 +96,6 @@ impl StringDictionaryV5 {
 
 impl<R: BufRead + Seek> StringDictionary<R> for StringDictionaryV5 {
     fn read_string(&self, reader: &mut R) -> Result<Rc<str>, DmxError> {
-        optick::event!();
         let string_id = reader.read_u32::<LE>()? as usize;
         Ok(Rc::clone(&self.strings[string_id]))
     }
