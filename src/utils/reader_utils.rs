@@ -1,0 +1,83 @@
+use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
+use std::io::ErrorKind::Other;
+
+use byteorder::{LE, ReadBytesExt};
+use half::f16;
+
+pub trait FromReader<R>: Sized
+    where R: Read + Seek {
+    fn from_reader(reader: &mut R) -> io::Result<Self>;
+}
+
+pub trait ReadExt: Read + Seek {
+    #[inline]
+    fn read_ztstring(&mut self) -> io::Result<String> {
+        let mut buf = vec![];
+        loop {
+            let ch = self.read_u8()?;
+            if ch == 0 {
+                return String::from_utf8(buf).map_err(|e| { Error::new(Other, e) });
+            }
+            buf.push(ch);
+        }
+    }
+
+    #[inline]
+    fn read_pztstring(&mut self, base_offset: u64) -> io::Result<String> {
+        let ptr = self.read_i32le()? as i64;
+        let cur_offset = self.stream_position()?;
+        self.seek(SeekFrom::Start((base_offset as i64 + ptr) as u64))?;
+        let res = self.read_ztstring()?;
+        self.seek(SeekFrom::Start(cur_offset))?;
+        Ok(res)
+    }
+
+    #[inline]
+    fn read_fixed_string(&mut self, len: usize) -> io::Result<String> {
+        let mut buf = vec![0u8; len + 1];
+        self.read_exact(&mut buf[..len])?;
+        let nul_index = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+        let valid_buf = &buf[..nul_index];
+        String::from_utf8(valid_buf.to_vec()).map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))
+    }
+
+
+    #[inline]
+    fn read_relptr(&mut self, base: u64) -> io::Result<u64> {
+        let i = self.read_i32le()?;
+        Ok(base.wrapping_add_signed(i as i64))
+    }
+
+
+    #[inline]
+    fn read_u16le(&mut self) -> io::Result<u16> {
+        self.read_u16::<LE>()
+    }
+
+    #[inline]
+    fn read_u32le(&mut self) -> io::Result<u32> {
+        self.read_u32::<LE>()
+    }
+
+    #[inline]
+    fn read_i16le(&mut self) -> io::Result<i16> {
+        self.read_i16::<LE>()
+    }
+
+    #[inline]
+    fn read_i32le(&mut self) -> io::Result<i32> {
+        self.read_i32::<LE>()
+    }
+
+    #[inline]
+    fn read_f32le(&mut self) -> io::Result<f32> {
+        self.read_f32::<LE>()
+    }
+
+    #[inline]
+    fn read_f16le(&mut self) -> io::Result<f32> {
+        Ok(f16::from_bits(self.read_u16::<LE>()?).into())
+    }
+}
+
+impl<R: Read + Seek + ?Sized> ReadExt for R {}
