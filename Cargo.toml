@@ -14,7 +14,7 @@ name = "playground"
 path = "src/main.rs"
 
 [dependencies]
-pyo3 = { version = "0.21.1", features = ["abi3", "experimental-inspect", "abi3-py38"] }
+pyo3 = { version = "0.21.2", features = ["abi3", "experimental-inspect", "abi3-py37", "extension-module"] }
 numpy = { version = "0.21.0", features = ["half"] }
 lzham-alpha-sys = "0.1.1"
 lz4 = "1.24.0"
@@ -22,7 +22,7 @@ zstd = "0.13.1"
 binread = "2.2.0"
 bitflags = "2.5.0"
 regex = "1.10.4"
-thiserror = "1.0.58"
+thiserror = "1.0.59"
 byteorder = "1.5.0"
 uuid = { version = "1.8.0", features = ["v4"] }
 optick = "1.3.4"
