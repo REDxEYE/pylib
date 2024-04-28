@@ -54,7 +54,7 @@ fn test_dmx() -> io::Result<()> {
 }
 
 fn test_vpk() -> io::Result<()> {
-    let path = r"D:\SteamLibrary\steamapps\common\Half-Life 2\hl2\hl2_pak_dir.vpk";
+    let path = r"D:\SteamLibrary\steamapps\common\Counter-Strike Global Offensive\game\csgo\pak01_dir.vpk";
     let mut vpk = Vpk::from_path(Path::new(path))?;
     let data = vpk.find_file("gamepadui/schemetab.res".into());
     println!("{:?}", data);

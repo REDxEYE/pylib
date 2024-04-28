@@ -1,5 +1,4 @@
 use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
-use std::io::ErrorKind::Other;
 
 use byteorder::{LE, ReadBytesExt};
 use half::f16;
@@ -12,13 +11,26 @@ pub trait FromReader<R>: Sized
 pub trait ReadExt: Read + Seek {
     #[inline]
     fn read_ztstring(&mut self) -> io::Result<String> {
-        let mut buf = vec![];
+        let mut buffer = Vec::with_capacity(256);
+        let mut chunk = vec![0; 32]; // Buffer for the chunk
+
         loop {
-            let ch = self.read_u8()?;
-            if ch == 0 {
-                return String::from_utf8(buf).map_err(|e| { Error::new(Other, e) });
+            let size = self.take(32).read(&mut chunk)?;
+            if size == 0 {
+                break; // End of file or stream reached without finding zero
             }
-            buf.push(ch);
+            if let Some(pos) = chunk.iter().position(|&x| x == 0) {
+                buffer.extend_from_slice(&chunk[..pos]); // Add everything before the zero
+                self.seek(SeekFrom::Current(-((size as i64) - (pos as i64) - 1)))?; // Seek back to position right after zero
+                break;
+            } else {
+                buffer.extend_from_slice(&chunk[..size]); // Add all read bytes if no zero found
+            }
+        }
+
+        match String::from_utf8(buffer) {
+            Ok(s) => Ok(s),
+            Err(e) => Err(Error::new(ErrorKind::InvalidData, e.to_string())),
         }
     }
 

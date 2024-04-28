@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::fs::File;
 use std::io;
-use std::io::{ErrorKind, Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::io::ErrorKind::InvalidData;
 use std::path::{Path, PathBuf};
+
+
+use fnmatch_regex2::glob_to_regex;
 
 use crate::errors::SourceError;
 use crate::utils::reader_utils::{FromReader, ReadExt};
@@ -22,7 +25,7 @@ impl<R: Read + Seek> FromReader<R> for VpkHeader {
     fn from_reader(reader: &mut R) -> io::Result<Self> {
         let magic = reader.read_u32le()?;
         if magic != 0x55AA1234 {
-            return Err(io::Error::new(ErrorKind::InvalidData, SourceError::InvalidHeader("Vpk".into(), magic.to_le_bytes(), 0x55AA1234u32.to_le_bytes())));
+            return Err(io::Error::new(InvalidData, SourceError::InvalidHeader("Vpk".into(), magic.to_le_bytes(), 0x55AA1234u32.to_le_bytes())));
         }
         let version = (reader.read_u16le()?, reader.read_u16le()?);
         let tree_size = reader.read_u32le()?;
@@ -101,15 +104,16 @@ pub struct Vpk {
     file_buffer: File,
     header: VpkHeader,
     tree_offset: u64,
-    entries: HashMap<String, VpkEntry>,
+    entry_list: Vec<VpkEntry>,
+    entries: HashMap<String, usize>,
 }
-
 
 impl Vpk {
     pub fn from_path(path: &Path) -> io::Result<Self> {
         let mut file = File::open(path)?;
         let header = VpkHeader::from_reader(&mut file)?;
         let mut entries = HashMap::new();
+        let mut entry_list = Vec::new();
         let tree_offset = file.stream_position()?;
         loop {
             let type_name = file.read_ztstring()?;
@@ -130,7 +134,8 @@ impl Vpk {
                     let full_path = format!("{directory_name}/{file_name}.{type_name}").to_lowercase();
                     let mut entry = VpkEntry::from_reader(&mut file)?;
                     entry.file_name = full_path.clone();
-                    entries.insert(full_path, entry);
+                    entry_list.push(entry);
+                    entries.insert(full_path, entry_list.len() - 1);
                 }
             }
         }
@@ -141,37 +146,68 @@ impl Vpk {
             file_buffer: file,
             header,
             tree_offset,
+            entry_list,
             entries,
         })
     }
 
-    pub fn find_file(&mut self, name: String) -> Option<Vec<u8>> {
-        match self.entries.get(&name) {
+    pub fn find_file(&mut self, name: &str) -> Option<Vec<u8>> {
+        match self.entries.get(&name.to_lowercase().replace('\\', "/")) {
             None => { None }
-            Some(entry) => {
-                let mut res = Vec::with_capacity(entry.preload_data_size as usize);
-                if entry.preload_data_size > 0 {
-                    res.extend(&entry.preload_data);
-                }
-
-                if entry.archive_id == 0x7FFF {
-                    self.file_buffer.seek(SeekFrom::Start((self.header.tree_size + entry.offset) as u64)).ok()?;
-                    res.resize(res.len() + entry.size as usize, 0);
-                    self.file_buffer.read_exact(&mut res[entry.preload_data_size as usize..]).ok()?;
-                    Some(res)
-                } else {
-                    let target_archive_path = {
-                        let stem_tmp = self.file_path.file_stem()?;
-                        let stem = stem_tmp.to_str()?[0..stem_tmp.len() - 3].to_owned();
-                        self.file_path.parent()?.join(format!("{0}{1:03}.vpk", stem, entry.archive_id))
-                    };
-                    let mut file = File::open(target_archive_path).ok()?;
-                    file.seek(SeekFrom::Start(entry.offset as u64)).ok()?;
-                    res.resize(res.len() + entry.size as usize, 0);
-                    file.read_exact(&mut res[entry.preload_data_size as usize..]).ok()?;
-                    Some(res)
-                }
+            Some(&entry_id) => {
+                self.get_content(entry_id)
             }
         }
+    }
+
+    #[inline(always)]
+    fn get_content(&mut self, entry_id: usize) -> Option<Vec<u8>> {
+        let entry = &self.entry_list[entry_id];
+        let mut res = Vec::with_capacity(entry.preload_data_size as usize);
+        if entry.preload_data_size > 0 {
+            res.extend(&entry.preload_data);
+        }
+
+        if entry.archive_id == 0x7FFF {
+            self.file_buffer.seek(SeekFrom::Start((self.header.tree_size + entry.offset) as u64)).ok()?;
+            res.resize(res.len() + entry.size as usize, 0);
+            self.file_buffer.read_exact(&mut res[entry.preload_data_size as usize..]).ok()?;
+            Some(res)
+        } else {
+            let target_archive_path = {
+                let stem_tmp = self.file_path.file_stem()?;
+                let stem = stem_tmp.to_str()?[0..stem_tmp.len() - 3].to_owned();
+                self.file_path.parent()?.join(format!("{0}{1:03}.vpk", stem, entry.archive_id))
+            };
+            let mut file = File::open(target_archive_path).ok()?;
+            file.seek(SeekFrom::Start(entry.offset as u64)).ok()?;
+            res.resize(res.len() + entry.size as usize, 0);
+            file.read_exact(&mut res[entry.preload_data_size as usize..]).ok()?;
+            Some(res)
+        }
+    }
+
+    #[inline(always)]
+    pub fn contains(&self, name: &str) -> bool {
+        self.entries.contains_key(&name.to_lowercase().replace('\\', "/"))
+    }
+
+    pub fn filter(&mut self, pattern: &str) -> Vec<(String, Vec<u8>)> {
+        let rpattern = match glob_to_regex(pattern) {
+            Ok(pat) => { pat }
+            Err(_) => { return Vec::new(); }
+        };
+        let mut res = Vec::new();
+        let entries = self.entries.clone();
+        for (key, &entry_id) in entries.iter().filter(|(key, _)| {
+            rpattern.is_match(key)
+        }) {
+            let data = match self.get_content(entry_id) {
+                None => {continue}
+                Some(data) => {data}
+            };
+            res.push((key.clone(),data))
+        }
+        res
     }
 }
