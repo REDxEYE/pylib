@@ -1,4 +1,4 @@
-use std::io::{self, Error, ErrorKind, Read, Seek, SeekFrom};
+use std::io::{self, BufRead, Error, ErrorKind, Read, Seek, SeekFrom};
 
 use byteorder::{LE, ReadBytesExt};
 use half::f16;
@@ -8,14 +8,22 @@ pub trait FromReader<R>: Sized
     fn from_reader(reader: &mut R) -> io::Result<Self>;
 }
 
-pub trait ReadExt: Read + Seek {
-    #[inline]
+pub trait BufReadExt: BufRead {
+    fn read_ztstring_buf(&mut self) -> io::Result<String> {
+        let mut buffer = Vec::new();
+        self.read_until(0, &mut buffer)?;
+        buffer.truncate(buffer.len() - 1);
+        String::from_utf8(buffer).map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))
+    }
+}
+
+pub trait ReadSeekExt: Read + Seek {
     fn read_ztstring(&mut self) -> io::Result<String> {
-        let mut buffer = Vec::with_capacity(256);
+        let mut buffer = Vec::with_capacity(16);
         let mut chunk = vec![0; 32]; // Buffer for the chunk
 
         loop {
-            let size = self.take(32).read(&mut chunk)?;
+            let size = self.read(&mut chunk)?;
             if size == 0 {
                 break; // End of file or stream reached without finding zero
             }
@@ -27,13 +35,8 @@ pub trait ReadExt: Read + Seek {
                 buffer.extend_from_slice(&chunk[..size]); // Add all read bytes if no zero found
             }
         }
-
-        match String::from_utf8(buffer) {
-            Ok(s) => Ok(s),
-            Err(e) => Err(Error::new(ErrorKind::InvalidData, e.to_string())),
-        }
+        String::from_utf8(buffer).map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))
     }
-
     #[inline]
     fn read_pztstring(&mut self, base_offset: u64) -> io::Result<String> {
         let ptr = self.read_i32le()? as i64;
@@ -43,7 +46,9 @@ pub trait ReadExt: Read + Seek {
         self.seek(SeekFrom::Start(cur_offset))?;
         Ok(res)
     }
+}
 
+pub trait ReadExt: Read {
     #[inline]
     fn read_fixed_string(&mut self, len: usize) -> io::Result<String> {
         let mut buf = vec![0u8; len + 1];
@@ -92,4 +97,8 @@ pub trait ReadExt: Read + Seek {
     }
 }
 
-impl<R: Read + Seek + ?Sized> ReadExt for R {}
+impl<R: Read + Seek + ?Sized> ReadSeekExt for R {}
+
+impl<R: Read + ?Sized> ReadExt for R {}
+
+impl<R: BufRead + ?Sized> BufReadExt for R {}

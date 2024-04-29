@@ -5,7 +5,7 @@ use byteorder::ReadBytesExt;
 
 use rustlib::utils::reader_utils::ReadExt;
 
-use crate::utils::reader_utils::FromReader;
+use crate::utils::reader_utils::{FromReader, ReadSeekExt};
 
 pub struct IndexHeader {
     version: u32,

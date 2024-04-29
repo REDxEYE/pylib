@@ -4,9 +4,9 @@ use std::io::Write;
 use std::path::Path;
 
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict};
 
-fn generate_pyi(path:&Path) -> PyResult<()> {
+fn generate_pyi(path: &Path) -> PyResult<()> {
     pyo3::prepare_freethreaded_python();
     Python::with_gil(|py| {
         let module = py.import_bound("rustlib").unwrap();
@@ -14,30 +14,31 @@ fn generate_pyi(path:&Path) -> PyResult<()> {
 def generate_pyi(module):
     buf = ""
     for name, obj in inspect.getmembers(module):
-        if inspect.isclass(obj):
+        if inspect.ismodule(obj):
+            generate_pyi(obj, stubs, module_name)
+        elif inspect.isclass(obj):
             buf += f"class {name}:\n"
             for cname, cobj in inspect.getmembers(obj):
-                if cname.startswith("__"):continue
-                if isinstance(cobj, (types.FunctionType,types.MethodType, types.MethodDescriptorType)):
+                if cname.startswith("__"): continue
+                if isinstance(cobj, (types.FunctionType, types.MethodType, types.MethodDescriptorType)):
                     args = inspect.signature(cobj)
-                    print(args)
                     buf += f"    def {cname}{args}: ...\n"
                 elif isinstance(cobj, types.BuiltinFunctionType):
-                    args = str(inspect.signature(cobj))
                     buf += "    @classmethod\n"
-                    args = f"(cls, {args[1:]}"
+                    args = inspect.signature(cobj, eval_str=True)
+                    print(cobj, args.return_annotation)
+                    args = f"(cls, {str(args)[1:]}"
                     buf += f"    def {cname}{args}: ...\n"
             buf += "\n"
         elif inspect.isfunction(obj):
             args = inspect.signature(obj)
-            buf+=(f"def {name}{args}: ...\n")
+            buf += f"def {name}{args}: ...\n"
         elif inspect.isbuiltin(obj):
-            # Assuming all built-ins are functions for simplicity
             args = inspect.signature(obj)
-            buf+=(f"def {name}{args}: ...\n")
+            buf += f"def {name}{args}: ...\n"
         elif isinstance(obj, (int, float, str, bool)):
             t = type(obj).__name__
-            buf+=(f"{name}: {t}\n")
+            buf += f"{name}: {t}\n"
     return buf
             "#, None, None).unwrap();
         let locals = PyDict::new_bound(py);

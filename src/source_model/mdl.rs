@@ -11,6 +11,7 @@ use rustlib::utils::reader_utils::ReadExt;
 use crate::errors::SourceError::{self, InvalidHeader};
 
 use crate::source_model::model::Bone;
+use crate::utils::reader_utils::ReadSeekExt;
 
 bitflags! {
     /// Represents a set of flags.

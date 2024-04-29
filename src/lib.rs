@@ -70,22 +70,27 @@ pub fn py_decode_index_buffer(py: Python, index_count: u32, index_size: u32, inp
     Ok(PyBytes::new_bound(py, dest.as_slice()))
 }
 
+#[pyfunction]
+#[pyo3(signature = (input_data, decompressed_size), name = "zstd_decompress")]
 pub fn py_zstd_decompress(py: Python, input_data: Vec<u8>, decompressed_size: usize) -> PyResult<Bound<PyBytes>> {
     let mut dest = vec![0u8; decompressed_size];
     zstd_decompress(&mut dest, input_data.as_slice()).map_err(|e| { PyBufferError::new_err(e.to_string()) })?;
     Ok(PyBytes::new_bound(py, dest.as_slice()))
 }
 
+#[pyfunction]
+#[pyo3(signature = (input_data), name = "zstd_decompress_stream")]
 pub fn py_zstd_decompress_stream(py: Python, input_data: Vec<u8>) -> PyResult<Bound<PyBytes>> {
     let dest = decode_all(Cursor::new(input_data.as_slice())).map_err(|e| { PyBufferError::new_err(e.to_string()) })?;
     Ok(PyBytes::new_bound(py, dest.as_slice()))
 }
 
-/// A Python module implemented in Rust.
 #[pymodule]
-fn rustlib(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn rustlib(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<Vpk>()?;
     m.add_function(wrap_pyfunction!(py_decode_vertex_buffer, m)?)?;
     m.add_function(wrap_pyfunction!(py_decode_index_buffer, m)?)?;
-    m.add_class::<Vpk>()?;
+    m.add_function(wrap_pyfunction!(py_zstd_decompress, m)?)?;
+    m.add_function(wrap_pyfunction!(py_zstd_decompress_stream, m)?)?;
     Ok(())
 }

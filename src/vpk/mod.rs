@@ -1,15 +1,15 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::fs::File;
 use std::io;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::io::ErrorKind::InvalidData;
 use std::path::{Path, PathBuf};
-
 
 use fnmatch_regex2::glob_to_regex;
 
 use crate::errors::SourceError;
-use crate::utils::reader_utils::{FromReader, ReadExt};
+use crate::utils::reader_utils::{BufReadExt, FromReader, ReadExt};
 
 #[derive(Debug, Default)]
 struct VpkHeader {
@@ -74,8 +74,8 @@ struct VpkEntry {
 
 }
 
-impl<R: Read + Seek> FromReader<R> for VpkEntry {
-    fn from_reader(reader: &mut R) -> io::Result<Self> {
+impl VpkEntry {
+    fn from_reader<R: BufRead>(reader: &mut R) -> io::Result<Self> {
         let mut entry = VpkEntry {
             file_name: "".into(),
             crc32: reader.read_u32le()?,
@@ -98,35 +98,38 @@ impl<R: Read + Seek> FromReader<R> for VpkEntry {
     }
 }
 
+trait SeekRead: Read + Seek {}
+
 #[derive(Debug)]
 pub struct Vpk {
     file_path: PathBuf,
-    file_buffer: File,
     header: VpkHeader,
     tree_offset: u64,
     entry_list: Vec<VpkEntry>,
     entries: HashMap<String, usize>,
 }
 
+impl SeekRead for BufReader<File> {}
+
 impl Vpk {
     pub fn from_path(path: &Path) -> io::Result<Self> {
-        let mut file = File::open(path)?;
+        let mut file = File::open(path).map(BufReader::new)?;
         let header = VpkHeader::from_reader(&mut file)?;
         let mut entries = HashMap::new();
         let mut entry_list = Vec::new();
         let tree_offset = file.stream_position()?;
         loop {
-            let type_name = file.read_ztstring()?;
+            let type_name = file.read_ztstring_buf()?;
             if type_name.is_empty() {
                 break;
             }
             loop {
-                let directory_name = file.read_ztstring()?;
+                let directory_name = file.read_ztstring_buf()?;
                 if directory_name.is_empty() {
                     break;
                 }
                 loop {
-                    let file_name = file.read_ztstring()?;
+                    let file_name = file.read_ztstring_buf()?;
                     if file_name.is_empty() {
                         break;
                     }
@@ -143,7 +146,6 @@ impl Vpk {
 
         Ok(Vpk {
             file_path: path.to_path_buf(),
-            file_buffer: file,
             header,
             tree_offset,
             entry_list,
@@ -169,9 +171,10 @@ impl Vpk {
         }
 
         if entry.archive_id == 0x7FFF {
-            self.file_buffer.seek(SeekFrom::Start((self.header.tree_size + entry.offset) as u64)).ok()?;
+            let mut file = File::open(&self.file_path).ok()?;
+            file.seek(SeekFrom::Start((self.header.tree_size + entry.offset) as u64)).ok()?;
             res.resize(res.len() + entry.size as usize, 0);
-            self.file_buffer.read_exact(&mut res[entry.preload_data_size as usize..]).ok()?;
+            file.read_exact(&mut res[entry.preload_data_size as usize..]).ok()?;
             Some(res)
         } else {
             let target_archive_path = {
@@ -203,10 +206,10 @@ impl Vpk {
             rpattern.is_match(key)
         }) {
             let data = match self.get_content(entry_id) {
-                None => {continue}
-                Some(data) => {data}
+                None => { continue; }
+                Some(data) => { data }
             };
-            res.push((key.clone(),data))
+            res.push((key.clone(), data))
         }
         res
     }
