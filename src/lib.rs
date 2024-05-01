@@ -5,7 +5,7 @@ use std::io::Cursor;
 use std::path::PathBuf;
 
 use lz4_sys::{LZ4_compress_default, LZ4_decompress_safe};
-use pyo3::exceptions::{PyBufferError, PyException};
+use pyo3::exceptions::{PyBufferError, PyException, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString, PyType};
 use zstd::stream::{copy_encode as zstd_encode_stream, decode_all as zstd_decode_stream};
@@ -16,7 +16,7 @@ use zstd::zstd_safe::decompress as zstd_decompress;
 use utils::decode_index_buffer;
 use utils::decode_vertex_buffer;
 
-use crate::utils::lz4_chain::LZ4ChainDecoder as LZ4ChainDecoderInner;
+use crate::utils::lz4_chain::{LZ4ChainDecoder as LZ4ChainDecoderInner, SAFE_C_INT_MAX};
 use crate::vpk::Vpk as InnerVpk;
 
 mod utils;
@@ -61,6 +61,33 @@ impl Vpk {
     }
 }
 
+#[pyclass(unsendable)]
+struct LZ4ChainDecoder {
+    inner: LZ4ChainDecoderInner,
+}
+
+#[pymethods]
+impl LZ4ChainDecoder {
+    #[new]
+    #[pyo3(signature = (block_size, extra_blocks))]
+    fn new(block_size: u32, extra_blocks: u32) -> Self {
+        LZ4ChainDecoder {
+            inner: LZ4ChainDecoderInner::new(block_size as usize, extra_blocks as usize)
+        }
+    }
+
+    fn __del__(&mut self) {
+        self.inner.free();
+    }
+
+    #[pyo3(signature = (src, block_size))]
+    fn decompress<'p>(&mut self, py: Python<'p>, src: Vec<u8>, block_size: u32) -> PyResult<Bound<'p, PyBytes>> {
+        let mut dst = vec![0u8; block_size as usize];
+
+        self.inner.decode_and_drain(src.as_slice(), dst.as_mut_slice()).map_err(|e| { PyBufferError::new_err(e) })?;
+        Ok(PyBytes::new_bound(py, dst.as_slice()))
+    }
+}
 
 #[pyfunction]
 #[pyo3(signature = (input_data, vertex_size, vertex_count, ), name = "decode_vertex_buffer")]
@@ -112,6 +139,9 @@ pub fn py_zstd_decompress_stream(py: Python, input_data: Vec<u8>) -> PyResult<Bo
 #[pyfunction]
 #[pyo3(signature = (input_data, decompressed_size), name = "lz4_decompress")]
 pub fn py_lz4_decompress(py: Python, input_data: Vec<u8>, decompressed_size: u32) -> PyResult<Bound<PyBytes>> {
+    if input_data.len()>SAFE_C_INT_MAX as usize || decompressed_size>SAFE_C_INT_MAX{
+        return Err(PyValueError::new_err("input_data or decompressed_size is too big"));
+    }
     let mut data = vec![0u8; decompressed_size as usize];
     let real_decompressed_size = unsafe { LZ4_decompress_safe(input_data.as_ptr().cast(), data.as_mut_ptr().cast(), input_data.len() as c_int, decompressed_size as c_int) as u32 };
     if real_decompressed_size != decompressed_size {
@@ -123,38 +153,13 @@ pub fn py_lz4_decompress(py: Python, input_data: Vec<u8>, decompressed_size: u32
 #[pyfunction]
 #[pyo3(signature = (input_data), name = "lz4_compress")]
 pub fn py_lz4_compress(py: Python, input_data: Vec<u8>) -> PyResult<Bound<PyBytes>> {
+    if input_data.len()>SAFE_C_INT_MAX as usize{
+        return Err(PyValueError::new_err("input_data or decompressed_size is too big"));
+    }
     let mut dst = vec![0u8; input_data.len()];
     let real_compressed_size = unsafe { LZ4_compress_default(input_data.as_ptr().cast(), dst.as_mut_ptr().cast(), input_data.len() as c_int, dst.len() as c_int) as u32 };
 
     Ok(PyBytes::new_bound(py, &dst[..real_compressed_size as usize]))
-}
-
-#[pyclass(unsendable)]
-struct LZ4ChainDecoder {
-    inner: LZ4ChainDecoderInner,
-}
-
-#[pymethods]
-impl LZ4ChainDecoder {
-    #[new]
-    #[pyo3(signature = (block_size, extra_blocks))]
-    fn new(block_size: u32, extra_blocks: u32) -> Self {
-        LZ4ChainDecoder {
-            inner: LZ4ChainDecoderInner::new(block_size as usize, extra_blocks as usize)
-        }
-    }
-
-    fn __del__(&mut self) {
-        self.inner.free();
-    }
-
-    #[pyo3(signature = (src, block_size))]
-    fn decompress<'p>(&mut self, py: Python<'p>, src: Vec<u8>, block_size: u32) -> PyResult<Bound<'p, PyBytes>> {
-        let mut dst = vec![0u8; block_size as usize];
-
-        self.inner.decode_and_drain(src.as_slice(), dst.as_mut_slice()).map_err(|e| { PyBufferError::new_err(e) })?;
-        Ok(PyBytes::new_bound(py, dst.as_slice()))
-    }
 }
 
 #[pymodule]
