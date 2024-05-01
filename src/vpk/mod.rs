@@ -172,7 +172,7 @@ impl Vpk {
 
         if entry.archive_id == 0x7FFF {
             let mut file = File::open(&self.file_path).ok()?;
-            file.seek(SeekFrom::Start((self.header.tree_size + entry.offset) as u64)).ok()?;
+            file.seek(SeekFrom::Start(self.header.tree_size as u64 + entry.offset as u64 + self.tree_offset)).ok()?;
             res.resize(res.len() + entry.size as usize, 0);
             file.read_exact(&mut res[entry.preload_data_size as usize..]).ok()?;
             Some(res)

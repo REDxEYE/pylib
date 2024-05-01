@@ -4,6 +4,7 @@ mod comp_ibuf;
 mod comp_vbuf;
 
 pub mod reader_utils;
+pub mod lz4_chain;
 
 #[allow(unused)]
 pub use comp_vbuf::compressed_vertex_buffer::decode_vertex_buffer;

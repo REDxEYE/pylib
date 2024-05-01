@@ -19,7 +19,7 @@ def generate_pyi(module):
         elif inspect.isclass(obj):
             buf += f"class {name}:\n"
             for cname, cobj in inspect.getmembers(obj):
-                if cname.startswith("__"): continue
+                if cname.startswith("__") and cname !="__new__" and cname!="__del__": continue
                 if isinstance(cobj, (types.FunctionType, types.MethodType, types.MethodDescriptorType)):
                     args = inspect.signature(cobj)
                     buf += f"    def {cname}{args}: ...\n"
