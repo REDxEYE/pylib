@@ -3,11 +3,16 @@
 use std::ffi::c_int;
 use std::io::Cursor;
 use std::path::PathBuf;
+use std::sync::Mutex;
 
+use image::{Rgba32FImage, RgbaImage};
 use lz4_sys::{LZ4_compress_default, LZ4_decompress_safe};
+use numpy::{PyArray1, PyArrayMethods};
 use pyo3::exceptions::{PyBufferError, PyException, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString, PyType};
+use rayon::prelude::*;
+use vtflib2::{ImageFormat, VtfFile};
 use zstd::stream::{copy_encode as zstd_encode_stream, decode_all as zstd_decode_stream};
 use zstd::zstd_safe::compress as zstd_compress;
 use zstd::zstd_safe::compress_bound as zstd_compress_bound;
@@ -139,7 +144,7 @@ pub fn py_zstd_decompress_stream(py: Python, input_data: Vec<u8>) -> PyResult<Bo
 #[pyfunction]
 #[pyo3(signature = (input_data, decompressed_size), name = "lz4_decompress")]
 pub fn py_lz4_decompress(py: Python, input_data: Vec<u8>, decompressed_size: u32) -> PyResult<Bound<PyBytes>> {
-    if input_data.len()>SAFE_C_INT_MAX as usize || decompressed_size>SAFE_C_INT_MAX{
+    if input_data.len() > SAFE_C_INT_MAX as usize || decompressed_size > SAFE_C_INT_MAX {
         return Err(PyValueError::new_err("input_data or decompressed_size is too big"));
     }
     let mut data = vec![0u8; decompressed_size as usize];
@@ -153,13 +158,143 @@ pub fn py_lz4_decompress(py: Python, input_data: Vec<u8>, decompressed_size: u32
 #[pyfunction]
 #[pyo3(signature = (input_data), name = "lz4_compress")]
 pub fn py_lz4_compress(py: Python, input_data: Vec<u8>) -> PyResult<Bound<PyBytes>> {
-    if input_data.len()>SAFE_C_INT_MAX as usize{
+    if input_data.len() > SAFE_C_INT_MAX as usize {
         return Err(PyValueError::new_err("input_data or decompressed_size is too big"));
     }
     let mut dst = vec![0u8; input_data.len()];
     let real_compressed_size = unsafe { LZ4_compress_default(input_data.as_ptr().cast(), dst.as_mut_ptr().cast(), input_data.len() as c_int, dst.len() as c_int) as u32 };
 
     Ok(PyBytes::new_bound(py, &dst[..real_compressed_size as usize]))
+}
+
+#[pyfunction]
+#[pyo3(signature = (vtf_data), name = "load_vtf_texture")]
+pub fn py_load_vtf_texture(py: Python, vtf_data: Vec<u8>) -> PyResult<(Bound<PyBytes>, u32, u32, u32)> {
+    let mut vtf = VtfFile::new();
+    match vtf.load(vtf_data.as_slice()) {
+        Ok(_) => {}
+        Err(_) => { return Err(PyException::new_err("Failed to load VTF")); }
+    };
+    if !vtf.has_image() {
+        return Err(PyException::new_err("VTF image wasnt loaded"));
+    }
+    let format = vtf.format().ok_or(PyException::new_err("Failed to get VTFFile format"))?;
+    let pixel_data = vtf.data(0, 0, 0, 0).ok_or(PyException::new_err("Failed to get pixel data"))?;
+    let (converted_data, bpp) = match format {
+        ImageFormat::Rgba8888 => { (Vec::from(pixel_data), 8u32) }
+        ImageFormat::Agbr8888 |
+        ImageFormat::Rgb888 |
+        ImageFormat::Bgr888 |
+        ImageFormat::Rgb565 |
+        ImageFormat::I8 |
+        ImageFormat::Ia88 |
+        ImageFormat::P8 |
+        ImageFormat::A8 |
+        ImageFormat::Rgb888Bluescreen |
+        ImageFormat::Bgr888Bluescreen |
+        ImageFormat::Argb8888 |
+        ImageFormat::Bgra8888 |
+        ImageFormat::Dxt1 |
+        ImageFormat::Dxt3 |
+        ImageFormat::Dxt5 |
+        ImageFormat::Bgrx8888 |
+        ImageFormat::Bgr565 |
+        ImageFormat::Bgrx5551 |
+        ImageFormat::Bgra4444 |
+        ImageFormat::Dxt1OneBitAlpha |
+        ImageFormat::Bgra5551 |
+        ImageFormat::Uv88 |
+        ImageFormat::Uvlx8888 |
+        ImageFormat::Ati2N |
+        ImageFormat::Ati1N |
+        ImageFormat::Uvwq8888 => { (VtfFile::convert_image_to_rgba8888(pixel_data, vtf.width(), vtf.height(), format).map_err(|_| { PyException::new_err("Failed to convert to RGBA8888") })?, 8u32) }
+        ImageFormat::Rgba16161616F |
+        ImageFormat::Rgba16161616 |
+        ImageFormat::R32F |
+        ImageFormat::Rgb323232F |
+        ImageFormat::Rgba32323232F => { (VtfFile::convert_image(pixel_data, vtf.width(), vtf.height(), format, ImageFormat::Rgba32323232F).map_err(|_| { PyException::new_err("Failed to convert to RGBA8888") })?, 32u32) }
+        ImageFormat::NvDst16 => { return Err(PyException::new_err("Unsupported format")); }
+        ImageFormat::NvDst24 => { return Err(PyException::new_err("Unsupported format")); }
+        ImageFormat::NvIntz => { return Err(PyException::new_err("Unsupported format")); }
+        ImageFormat::NvRawz => { return Err(PyException::new_err("Unsupported format")); }
+        ImageFormat::AtiDst16 => { return Err(PyException::new_err("Unsupported format")); }
+        ImageFormat::AtiDst24 => { return Err(PyException::new_err("Unsupported format")); }
+        ImageFormat::NvNull => { return Err(PyException::new_err("Unsupported format")); }
+    };
+    Ok((PyBytes::new_bound(py, converted_data.as_slice()), vtf.width(), vtf.height(), bpp))
+}
+
+#[pyfunction]
+#[pyo3(signature = (data, width, height, format), name = "decode_texture")]
+pub fn py_decode_texture<'py>(py: Python<'py>, data: Vec<u8>, width: u32, height: u32, format: &str) -> PyResult<Bound<'py, PyBytes>> {
+    let mut pixels = vec![0u32; (width * height) as usize];
+    match format {
+        "BC1" | "DXT1" => {
+            texture2ddecoder::decode_bc1(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "BC3" | "DXT5" => {
+            texture2ddecoder::decode_bc3(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "BC4" | "ATI1N" => {
+            texture2ddecoder::decode_bc4(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "BC5" | "ATI2N" => {
+            texture2ddecoder::decode_bc5(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "BC6" => {
+            texture2ddecoder::decode_bc6_unsigned(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "BC7" => {
+            texture2ddecoder::decode_bc7(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "ETC1" => {
+            texture2ddecoder::decode_etc1(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "ETC2" => {
+            texture2ddecoder::decode_etc2_rgba8(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "EACRG" => {
+            texture2ddecoder::decode_eacrg(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        "EACR" => {
+            texture2ddecoder::decode_eacr(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+        }
+        _ => { return Err(PyException::new_err(format!("Unsupported format: {}", format))); }
+    };
+    let decompressed = Mutex::new(vec![0; (height * width * 4) as usize]); // Use Mutex to protect the vector
+
+    pixels.par_chunks(1000).enumerate().for_each(|(index, chunk)| {
+        let mut local_buf = vec![0; chunk.len() * 4];
+        chunk.iter().enumerate().for_each(|(i, pixel)| {
+            let bytes = pixel.to_be_bytes();
+            let pos = i * 4;
+            local_buf[pos] = bytes[1];
+            local_buf[pos + 1] = bytes[2];
+            local_buf[pos + 2] = bytes[3];
+            local_buf[pos + 3] = bytes[0];
+        });
+        let mut decompressed = decompressed.lock().unwrap();
+        let start = index * 1000 * 4;
+        decompressed[start..start + local_buf.len()].copy_from_slice(&local_buf);
+    });
+
+    Ok(PyBytes::new_bound(py, decompressed.into_inner().unwrap().as_slice()))
+}
+
+#[pyfunction]
+#[pyo3(signature = (pixel_data, width, height, path), name = "save_png")]
+pub fn py_save_png(pixel_data: Bound<PyArray1<u8>>, width: u32, height: u32, path: PathBuf) -> PyResult<()> {
+    let image = RgbaImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
+    image.save(path).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    Ok(())
+}
+
+#[pyfunction]
+#[pyo3(signature = (pixel_data, width, height, path), name = "save_hdr")]
+pub fn py_save_hdr(pixel_data: Bound<PyArray1<f32>>, width: u32, height: u32, path: PathBuf) -> PyResult<()> {
+    let image = Rgba32FImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
+    image.save(path).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    Ok(())
 }
 
 #[pymodule]
@@ -174,5 +309,9 @@ fn rustlib(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_zstd_decompress_stream, m)?)?;
     m.add_function(wrap_pyfunction!(py_lz4_compress, m)?)?;
     m.add_function(wrap_pyfunction!(py_lz4_decompress, m)?)?;
+    m.add_function(wrap_pyfunction!(py_save_png, m)?)?;
+    m.add_function(wrap_pyfunction!(py_save_hdr, m)?)?;
+    m.add_function(wrap_pyfunction!(py_load_vtf_texture, m)?)?;
+    m.add_function(wrap_pyfunction!(py_decode_texture, m)?)?;
     Ok(())
 }
