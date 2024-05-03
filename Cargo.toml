@@ -31,8 +31,9 @@ log = "0.4.21"
 half = { version = "2.4.1", features = ["std", "zerocopy"] }
 nalgebra = { version = "0.32.5" }
 fnmatch-regex2 = "0.3.0"
-image = { version = "0.25.1", default-features = false, features = ["rayon", "hdr", "png"] }
+image = { version = "0.25.1", default-features = false, features = ["rayon", "hdr", "png", "exr"] }
 rayon = "1.10.0"
+bcndecode = { git = "https://github.com/REDxEYE/bcndecode" }
 vtflib2 = { git = "https://github.com/lasa01/vtflib2-rs", features = ["static"] }
 texture2ddecoder = { version = "0.0.5", features = ["alloc"] }
 

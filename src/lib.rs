@@ -227,58 +227,64 @@ pub fn py_load_vtf_texture(py: Python, vtf_data: Vec<u8>) -> PyResult<(Bound<PyB
 #[pyfunction]
 #[pyo3(signature = (data, width, height, format), name = "decode_texture")]
 pub fn py_decode_texture<'py>(py: Python<'py>, data: Vec<u8>, width: u32, height: u32, format: &str) -> PyResult<Bound<'py, PyBytes>> {
-    let mut pixels = vec![0u32; (width * height) as usize];
-    match format {
-        "BC1" | "DXT1" => {
-            texture2ddecoder::decode_bc1(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "BC3" | "DXT5" => {
-            texture2ddecoder::decode_bc3(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "BC4" | "ATI1N" => {
-            texture2ddecoder::decode_bc4(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "BC5" | "ATI2N" => {
-            texture2ddecoder::decode_bc5(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "BC6" => {
-            texture2ddecoder::decode_bc6_unsigned(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "BC7" => {
-            texture2ddecoder::decode_bc7(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "ETC1" => {
-            texture2ddecoder::decode_etc1(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "ETC2" => {
-            texture2ddecoder::decode_etc2_rgba8(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "EACRG" => {
-            texture2ddecoder::decode_eacrg(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        "EACR" => {
-            texture2ddecoder::decode_eacr(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-        }
-        _ => { return Err(PyException::new_err(format!("Unsupported format: {}", format))); }
-    };
-    let decompressed = Mutex::new(vec![0; (height * width * 4) as usize]); // Use Mutex to protect the vector
+    return if format == "!BC6" {
+        let data = bcndecode::decode(data.as_slice(), width as usize, height as usize, bcndecode::BcnEncoding::Bc6H, bcndecode::BcnDecoderFormat::RGBA)
+            .map_err(|e| { PyException::new_err(e.to_string()) })?;
+        Ok(PyBytes::new_bound(py, data.as_slice()))
+    } else {
+        let mut pixels = vec![0u32; (width * height) as usize];
+        match format {
+            "BC1" | "DXT1" => {
+                texture2ddecoder::decode_bc1(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "BC3" | "DXT5" => {
+                texture2ddecoder::decode_bc3(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "BC4" | "ATI1N" => {
+                texture2ddecoder::decode_bc4(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "BC5" | "ATI2N" => {
+                texture2ddecoder::decode_bc5(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "BC7" => {
+                texture2ddecoder::decode_bc7(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "BC6" => {
+                texture2ddecoder::decode_bc6_unsigned(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "ETC1" => {
+                texture2ddecoder::decode_etc1(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "ETC2" => {
+                texture2ddecoder::decode_etc2_rgba8(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "EACRG" => {
+                texture2ddecoder::decode_eacrg(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            "EACR" => {
+                texture2ddecoder::decode_eacr(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
+            }
+            _ => { return Err(PyException::new_err(format!("Unsupported format: {}", format))); }
+        };
+        let decompressed = Mutex::new(vec![0; (height * width * 4) as usize]); // Use Mutex to protect the vector
 
-    pixels.par_chunks(1000).enumerate().for_each(|(index, chunk)| {
-        let mut local_buf = vec![0; chunk.len() * 4];
-        chunk.iter().enumerate().for_each(|(i, pixel)| {
-            let bytes = pixel.to_be_bytes();
-            let pos = i * 4;
-            local_buf[pos] = bytes[1];
-            local_buf[pos + 1] = bytes[2];
-            local_buf[pos + 2] = bytes[3];
-            local_buf[pos + 3] = bytes[0];
+        const CHUNK_SIZE: usize = 128 * 128;
+        pixels.par_chunks(CHUNK_SIZE).enumerate().for_each(|(index, chunk)| {
+            let mut local_buf = vec![0; chunk.len() * 4];
+            chunk.iter().enumerate().for_each(|(i, pixel)| {
+                let bytes = pixel.to_le_bytes();
+                let pos = i * 4;
+                local_buf[pos] = bytes[2];
+                local_buf[pos + 1] = bytes[1];
+                local_buf[pos + 2] = bytes[0];
+                local_buf[pos + 3] = bytes[3];
+            });
+            let mut decompressed = decompressed.lock().unwrap();
+            let start = index * CHUNK_SIZE * 4;
+            decompressed[start..start + local_buf.len()].copy_from_slice(&local_buf);
         });
-        let mut decompressed = decompressed.lock().unwrap();
-        let start = index * 1000 * 4;
-        decompressed[start..start + local_buf.len()].copy_from_slice(&local_buf);
-    });
-
-    Ok(PyBytes::new_bound(py, decompressed.into_inner().unwrap().as_slice()))
+        Ok(PyBytes::new_bound(py, decompressed.into_inner().unwrap().as_slice()))
+    }
 }
 
 #[pyfunction]
@@ -290,11 +296,29 @@ pub fn py_save_png(pixel_data: Bound<PyArray1<u8>>, width: u32, height: u32, pat
 }
 
 #[pyfunction]
-#[pyo3(signature = (pixel_data, width, height, path), name = "save_hdr")]
-pub fn py_save_hdr(pixel_data: Bound<PyArray1<f32>>, width: u32, height: u32, path: PathBuf) -> PyResult<()> {
+#[pyo3(signature = (pixel_data, width, height, path), name = "save_exr")]
+pub fn py_save_exr(pixel_data: Bound<PyArray1<f32>>, width: u32, height: u32, path: PathBuf) -> PyResult<()> {
     let image = Rgba32FImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
     image.save(path).map_err(|e| { PyException::new_err(e.to_string()) })?;
     Ok(())
+}
+
+#[pyfunction]
+#[pyo3(signature = (pixel_data, width, height), name = "encode_png")]
+pub fn py_encode_png<'py>(py: Python<'py>, pixel_data: Bound<PyArray1<u8>>, width: u32, height: u32) -> PyResult<Bound<'py, PyBytes>> {
+    let image = RgbaImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
+    let mut cursor = Cursor::new(Vec::with_capacity(64));
+    image.write_to(&mut cursor, image::ImageFormat::Png).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    Ok(PyBytes::new_bound(py, cursor.into_inner().as_slice()))
+}
+
+#[pyfunction]
+#[pyo3(signature = (pixel_data, width, height), name = "encode_exr")]
+pub fn py_encode_exr<'py>(py: Python<'py>, pixel_data: Bound<PyArray1<f32>>, width: u32, height: u32) -> PyResult<Bound<'py, PyBytes>> {
+    let image = Rgba32FImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
+    let mut cursor = Cursor::new(Vec::with_capacity(64));
+    image.write_to(&mut cursor, image::ImageFormat::OpenExr).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    Ok(PyBytes::new_bound(py, cursor.into_inner().as_slice()))
 }
 
 #[pymodule]
@@ -310,7 +334,9 @@ fn rustlib(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_lz4_compress, m)?)?;
     m.add_function(wrap_pyfunction!(py_lz4_decompress, m)?)?;
     m.add_function(wrap_pyfunction!(py_save_png, m)?)?;
-    m.add_function(wrap_pyfunction!(py_save_hdr, m)?)?;
+    m.add_function(wrap_pyfunction!(py_encode_png, m)?)?;
+    m.add_function(wrap_pyfunction!(py_save_exr, m)?)?;
+    m.add_function(wrap_pyfunction!(py_encode_exr, m)?)?;
     m.add_function(wrap_pyfunction!(py_load_vtf_texture, m)?)?;
     m.add_function(wrap_pyfunction!(py_decode_texture, m)?)?;
     Ok(())
