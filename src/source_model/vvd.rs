@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use std::io::{Read, Seek, SeekFrom};
 
-use rustlib::utils::reader_utils::ReadExt;
 
 use crate::errors::SourceError;
 use crate::source_model::model::VertexBuffer;
-use crate::utils::reader_utils::FromReader;
+use crate::utils::reader_utils::{FromReader, ReadExt};
 
 #[derive(Debug)]
 #[repr(C)]

@@ -7,16 +7,9 @@ use std::time::Instant;
 
 use binread::io;
 
-use source_model::mdl::read_mdl_v49;
-
-use crate::vpk::Vpk;
-
-mod source_model;
-mod dmx;
-mod utils;
-mod shared;
-mod vpk;
-pub mod errors;
+use rustlib::dmx;
+use rustlib::source_model::mdl::read_mdl_v49;
+use rustlib::vpk::Vpk;
 
 fn test_mdl() -> io::Result<()> {
     let mut mdl_file = File::open(r"D:\models\Sangheili-1.0\models\aaa\Sangheili\arbiter_f.mdl").expect("");
@@ -64,7 +57,8 @@ fn test_vpk() -> io::Result<()> {
 fn main() -> io::Result<()> {
     let start = Instant::now();
 
-    test_vpk()?;
+    // test_vpk()?;
+    test_dmx()?;
 
     let duration = start.elapsed();
     println!("Time taken: {} milliseconds", duration.as_micros() as f32 / 1000f32);

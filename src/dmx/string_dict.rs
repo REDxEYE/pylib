@@ -4,7 +4,7 @@ use std::rc::Rc;
 use byteorder::{LE, ReadBytesExt};
 
 use crate::dmx::errors::DmxError;
-use crate::utils::read_nullstring;
+use crate::utils::reader_utils::BufReadExt;
 
 
 #[derive(Debug, Clone, Default)]
@@ -37,7 +37,7 @@ impl StringDictionaryV1 {
 
 impl<R: BufRead + Seek> StringDictionary<R> for StringDictionaryV1 {
     fn read_string(&self, reader: &mut R) -> Result<Rc<str>, DmxError> {
-        Ok(Rc::from(read_nullstring(reader)?))
+        Ok(Rc::from(reader.read_ztstring_buf()?))
     }
 }
 
@@ -46,7 +46,7 @@ impl StringDictionaryV2 {
         let string_count = reader.read_u16::<LE>()? as usize;
         let mut strings = Vec::with_capacity(string_count);
         for _ in 0..string_count {
-            strings.push(Rc::from(read_nullstring(reader)?))
+            strings.push(Rc::from(reader.read_ztstring_buf()?))
         }
         Ok(StringDictionaryV2 { strings })
     }
@@ -67,7 +67,7 @@ impl StringDictionaryV4 {
         let string_count = reader.read_u32::<LE>()? as usize;
         let mut strings = Vec::with_capacity(string_count);
         for _ in 0..string_count {
-            strings.push(Rc::from(read_nullstring(reader)?))
+            strings.push(Rc::from(reader.read_ztstring_buf()?))
         }
         Ok(StringDictionaryV4 { strings })
     }
@@ -88,7 +88,7 @@ impl StringDictionaryV5 {
         let string_count = reader.read_u32::<LE>()? as usize;
         let mut strings = Vec::with_capacity(string_count);
         for _ in 0..string_count {
-            strings.push(Rc::from(read_nullstring(reader)?))
+            strings.push(Rc::from(reader.read_ztstring_buf()?))
         }
         Ok(StringDictionaryV5 { strings })
     }

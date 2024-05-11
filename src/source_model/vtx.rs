@@ -3,9 +3,8 @@ use std::io::{Read, Seek};
 use bitflags::bitflags;
 use byteorder::ReadBytesExt;
 
-use rustlib::utils::reader_utils::ReadExt;
 
-use crate::utils::reader_utils::{FromReader, ReadSeekExt};
+use crate::utils::reader_utils::{FromReader, ReadExt, ReadSeekExt};
 
 pub struct IndexHeader {
     version: u32,

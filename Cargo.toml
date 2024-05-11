@@ -10,11 +10,9 @@ crate-type = ["rlib", "cdylib"]
 
 [[bin]]
 name = "playground"
-path = "src/main.rs"
 
 [[bin]]
 name = "generate_pyi"
-path = "src/generate_pyi.rs"
 
 [dependencies]
 pyo3 = { version = "0.21.2", features = ["abi3", "experimental-inspect", "abi3-py37", "extension-module"] }
@@ -31,11 +29,11 @@ log = "0.4.21"
 half = { version = "2.4.1", features = ["std", "zerocopy"] }
 nalgebra = { version = "0.32.5" }
 fnmatch-regex2 = "0.3.0"
-image = { version = "0.25.1", default-features = false, features = ["rayon", "hdr", "png", "exr"] }
 rayon = "1.10.0"
-bcndecode = { git = "https://github.com/REDxEYE/bcndecode" }
 vtflib2 = { git = "https://github.com/lasa01/vtflib2-rs", features = ["static"] }
 texture2ddecoder = { version = "0.0.5", features = ["alloc"] }
+png = "0.17.13"
+exr = "1.72.0"
 
 [dev-dependencies]
 
@@ -43,4 +41,4 @@ binary-reader = "0.4.5"
 
 [profile.release]
 debug = true
-
+lto = true

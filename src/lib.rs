@@ -1,11 +1,14 @@
 #![allow(dead_code)]
 
 use std::ffi::c_int;
+use std::fs::File;
 use std::io::Cursor;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use image::{Rgba32FImage, RgbaImage};
+use exr::image::{Image, SpecificChannels};
+use exr::math::Vec2;
+use exr::prelude::WritableImage;
 use lz4_sys::{LZ4_compress_default, LZ4_decompress_safe};
 use numpy::{PyArray1, PyArrayMethods};
 use pyo3::exceptions::{PyBufferError, PyException, PyValueError};
@@ -21,14 +24,16 @@ use zstd::zstd_safe::decompress as zstd_decompress;
 use utils::decode_index_buffer;
 use utils::decode_vertex_buffer;
 
+use crate::utils::bc6::decode_bc6;
 use crate::utils::lz4_chain::{LZ4ChainDecoder as LZ4ChainDecoderInner, SAFE_C_INT_MAX};
 use crate::vpk::Vpk as InnerVpk;
 
-mod utils;
-mod dmx;
-mod shared;
-mod vpk;
-mod errors;
+pub mod source_model;
+pub mod utils;
+pub mod dmx;
+pub mod shared;
+pub mod vpk;
+pub mod errors;
 
 #[pyclass]
 pub struct Vpk {
@@ -227,10 +232,25 @@ pub fn py_load_vtf_texture(py: Python, vtf_data: Vec<u8>) -> PyResult<(Bound<PyB
 #[pyfunction]
 #[pyo3(signature = (data, width, height, format), name = "decode_texture")]
 pub fn py_decode_texture<'py>(py: Python<'py>, data: Vec<u8>, width: u32, height: u32, format: &str) -> PyResult<Bound<'py, PyBytes>> {
-    return if format == "!BC6" {
-        let data = bcndecode::decode(data.as_slice(), width as usize, height as usize, bcndecode::BcnEncoding::Bc6H, bcndecode::BcnDecoderFormat::RGBA)
-            .map_err(|e| { PyException::new_err(e.to_string()) })?;
-        Ok(PyBytes::new_bound(py, data.as_slice()))
+    return if format == "BC6" {
+        let mut pixels = vec![0f32; (width * height * 3) as usize];
+        decode_bc6(&mut Cursor::new(data), &mut pixels, width as usize, height as usize, false).map_err(|e| { PyException::new_err(e.to_string()) })?;
+        let decompressed = Mutex::new(vec![0; (height * width * 4 * 4) as usize]); // Use Mutex to protect the vector
+
+        const CHUNK_SIZE: usize = 128 * 128;
+        pixels.par_chunks(CHUNK_SIZE).enumerate().for_each(|(index, chunk)| {
+            let mut local_buf = vec![0; chunk.len() * 4];
+            chunk.iter().enumerate().for_each(|(i, pixel)| {
+                let bytes = pixel.to_le_bytes();
+                let pos = i * 4;
+                local_buf[pos..pos + 4].copy_from_slice(&bytes);
+            });
+            let mut decompressed = decompressed.lock().unwrap();
+            let start = index * CHUNK_SIZE * 4;
+            decompressed[start..start + local_buf.len()].copy_from_slice(&local_buf);
+        });
+
+        Ok(PyBytes::new_bound(py, decompressed.into_inner().unwrap().as_slice()))
     } else {
         let mut pixels = vec![0u32; (width * height) as usize];
         match format {
@@ -248,9 +268,6 @@ pub fn py_decode_texture<'py>(py: Python<'py>, data: Vec<u8>, width: u32, height
             }
             "BC7" => {
                 texture2ddecoder::decode_bc7(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
-            }
-            "BC6" => {
-                texture2ddecoder::decode_bc6_unsigned(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
             }
             "ETC1" => {
                 texture2ddecoder::decode_etc1(data.as_slice(), width as usize, height as usize, pixels.as_mut_slice()).map_err(|e| { PyException::new_err(e) })?;
@@ -284,40 +301,56 @@ pub fn py_decode_texture<'py>(py: Python<'py>, data: Vec<u8>, width: u32, height
             decompressed[start..start + local_buf.len()].copy_from_slice(&local_buf);
         });
         Ok(PyBytes::new_bound(py, decompressed.into_inner().unwrap().as_slice()))
-    }
+    };
 }
 
 #[pyfunction]
 #[pyo3(signature = (pixel_data, width, height, path), name = "save_png")]
 pub fn py_save_png(pixel_data: Bound<PyArray1<u8>>, width: u32, height: u32, path: PathBuf) -> PyResult<()> {
-    let image = RgbaImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
-    image.save(path).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    let file = File::create(path)?;
+    let mut encoder = png::Encoder::new(file, width, height);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_compression(png::Compression::Fast);
+    let mut writer = encoder.write_header().map_err(|e| { PyException::new_err(e.to_string()) })?;
+    writer.write_image_data(pixel_data.to_vec()?.as_slice()).map_err(|e| { PyException::new_err(e.to_string()) })?;
     Ok(())
 }
 
 #[pyfunction]
 #[pyo3(signature = (pixel_data, width, height, path), name = "save_exr")]
 pub fn py_save_exr(pixel_data: Bound<PyArray1<f32>>, width: u32, height: u32, path: PathBuf) -> PyResult<()> {
-    let image = Rgba32FImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
-    image.save(path).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    use exr::prelude::*;
+    let tmp = pixel_data.to_vec()?;
+    write_rgba_file(path, width as usize, height as usize, |x, y| {
+        let i = y * width as usize * 4 + x * 4;
+        (tmp[i + 0], tmp[i + 1], tmp[i + 2], tmp[i + 3]) }).map_err(|e| { PyException::new_err(e.to_string()) })?;
     Ok(())
 }
 
 #[pyfunction]
 #[pyo3(signature = (pixel_data, width, height), name = "encode_png")]
 pub fn py_encode_png<'py>(py: Python<'py>, pixel_data: Bound<PyArray1<u8>>, width: u32, height: u32) -> PyResult<Bound<'py, PyBytes>> {
-    let image = RgbaImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
     let mut cursor = Cursor::new(Vec::with_capacity(64));
-    image.write_to(&mut cursor, image::ImageFormat::Png).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    let mut encoder = png::Encoder::new(&mut cursor, width, height);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_compression(png::Compression::Fast);
+    let mut writer = encoder.write_header().map_err(|e| { PyException::new_err(e.to_string()) })?;
+    writer.write_image_data(pixel_data.to_vec()?.as_slice()).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    writer.finish().map_err(|e| { PyException::new_err(e.to_string()) })?;
     Ok(PyBytes::new_bound(py, cursor.into_inner().as_slice()))
 }
 
 #[pyfunction]
 #[pyo3(signature = (pixel_data, width, height), name = "encode_exr")]
 pub fn py_encode_exr<'py>(py: Python<'py>, pixel_data: Bound<PyArray1<f32>>, width: u32, height: u32) -> PyResult<Bound<'py, PyBytes>> {
-    let image = Rgba32FImage::from_raw(width, height, pixel_data.to_vec()?).ok_or(PyException::new_err("Failed to construct image"))?;
     let mut cursor = Cursor::new(Vec::with_capacity(64));
-    image.write_to(&mut cursor, image::ImageFormat::OpenExr).map_err(|e| { PyException::new_err(e.to_string()) })?;
+    let tmp = pixel_data.to_vec()?;
+    let channels = SpecificChannels::rgba(|Vec2(x, y)| {
+        let i = y * width as usize * 4 + x * 4;
+        (tmp[i + 0], tmp[i + 1], tmp[i + 2], tmp[i + 3]) });
+    Image::from_channels((width as usize, height as usize), channels).write().to_buffered(&mut cursor).map_err(|e| { PyException::new_err(e.to_string()) })?;
     Ok(PyBytes::new_bound(py, cursor.into_inner().as_slice()))
 }
 

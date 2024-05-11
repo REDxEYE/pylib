@@ -5,13 +5,10 @@ use bitflags::bitflags;
 use byteorder::{LE, ReadBytesExt};
 use nalgebra::Matrix4;
 
-use rustlib::shared::types::{Vector3, Vector4};
-use rustlib::utils::reader_utils::FromReader;
-use rustlib::utils::reader_utils::ReadExt;
 use crate::errors::SourceError::{self, InvalidHeader};
-
+use crate::shared::types::{Vector3, Vector4};
 use crate::source_model::model::Bone;
-use crate::utils::reader_utils::ReadSeekExt;
+use crate::utils::reader_utils::{FromReader, ReadExt, ReadSeekExt};
 
 bitflags! {
     /// Represents a set of flags.
