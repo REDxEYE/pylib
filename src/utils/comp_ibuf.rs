@@ -23,7 +23,7 @@ pub mod compressed_index_buffer {
         slice[0..4].copy_from_slice(&value.to_le_bytes());
         Ok(())
     }
-    
+
     fn push_edge_fifo(fifo: &mut [(u32, u32); 16], offset: &mut usize, a: u32, b: u32) {
         fifo[*offset] = (a, b);
         *offset = (*offset + 1) & 15;
@@ -73,12 +73,15 @@ pub mod compressed_index_buffer {
             return Err("Index buffer is too short.");
         }
 
-        if buffer[0]&0xF0 != INDEX_HEADER {
+        if buffer[0] & 0xF0 != INDEX_HEADER {
             return Err("Incorrect index buffer header.");
         }
-        if buffer[0] &0x0F > 1{
+        let version = buffer[0] & 0x0F;
+        if version > 1 {
             return Err("Unsupported version");
         }
+
+        let fec_max = if version >= 1 { 13 } else { 15 };
 
         let mut vertex_fifo: [u32; 16] = [0; 16];
         let mut edge_fifo: [(u32, u32); 16] = [(0, 0); 16];
@@ -102,7 +105,7 @@ pub mod compressed_index_buffer {
                 let ab = get_edge_fifo(&edge_fifo, edge_fifo_offset.wrapping_sub(1 + fe));
                 let fec = (code_tri & 15) as usize;
 
-                if fec != 15 {
+                if fec < fec_max {
                     let c: u32 = if fec == 0 { next } else { get_vertex_fifo(&vertex_fifo, vertex_fifo_offset.wrapping_sub(1 + fec)) };
                     let fec0 = fec == 0;
                     next += if fec0 { 1 } else { 0 };
@@ -114,7 +117,7 @@ pub mod compressed_index_buffer {
                     push_edge_fifo(&mut edge_fifo, &mut edge_fifo_offset, c, ab.1);
                     push_edge_fifo(&mut edge_fifo, &mut edge_fifo_offset, ab.0, c);
                 } else {
-                    let c = decode_index(data, &mut data_offset, last);
+                    let c = if fec != 15 { last + (fec - (fec ^ 3)) as u32 } else { decode_index(data, &mut data_offset, last) };
                     last = c;
 
                     write_triangle(destination, i, index_size, ab.0, ab.1, c);
@@ -151,6 +154,7 @@ pub mod compressed_index_buffer {
                 push_edge_fifo(&mut edge_fifo, &mut edge_fifo_offset, a, c);
             } else {
                 let code_aux = data[data_offset];
+                if code_aux == 0 { next = 0 };
                 data_offset += 1;
 
                 let fea: u8 = if code_tri == 0xfe { 0u8 } else { 15u8 };
