@@ -2,7 +2,7 @@
 
 use std::ffi::c_int;
 use std::fs::File;
-use std::io::Cursor;
+use std::io::{Cursor, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -15,7 +15,7 @@ use pyo3::exceptions::{PyBufferError, PyException, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString, PyType};
 use rayon::prelude::*;
-use vtflib2::{ImageFormat, VtfFile};
+use vtflib2::{ImageFormat, MipmapFilter, VtfFile};
 use zstd::stream::{copy_encode as zstd_encode_stream, decode_all as zstd_decode_stream};
 use zstd::zstd_safe::compress as zstd_compress;
 use zstd::zstd_safe::compress_bound as zstd_compress_bound;
@@ -230,6 +230,22 @@ pub fn py_load_vtf_texture(py: Python, vtf_data: Vec<u8>) -> PyResult<(Bound<PyB
 }
 
 #[pyfunction]
+#[pyo3(signature = (output_path, width, height, format, generate_mips, resize, version, resize_size, pixel_data), name = "save_vtf_texture")]
+pub fn py_save_vtf_texture<'p>(py: Python<'p>, output_path: &Bound<'p, PyAny>, width: u32, height: u32, format: u32, generate_mips: bool, resize: bool, version: (u32, u32), resize_size: (u32, u32), pixel_data: Vec<u8>) -> PyResult<()> {
+    let mut vtf = VtfFile::new();
+    let mut pixels = pixel_data.clone();
+    vtf
+        .from_rgba8888(width, height)
+        .version(version.0, version.1)
+        .format(unsafe { std::mem::transmute(format) })
+        .create(pixels.as_mut_slice()).map_err(|e| { PyException::new_err(format!("Failed to create VTFFile {:?}", e)) })?;
+    let vtf_data = vtf.save_to_vec().map_err(|e| { PyException::new_err(format!("Failed to save VTFFile to memory {:?}", e)) })?;
+    let mut file = File::open(output_path.extract::<PathBuf>()?)?;
+    file.write_all(vtf_data.as_slice()).map_err(|e| { PyException::new_err(format!("Failed to save VTFFile to disk {:?}", e)) })?;
+    return Ok(());
+}
+
+#[pyfunction]
 #[pyo3(signature = (data, width, height, format), name = "decode_texture")]
 pub fn py_decode_texture<'py>(py: Python<'py>, data: Vec<u8>, width: u32, height: u32, format: &str) -> PyResult<Bound<'py, PyBytes>> {
     return if format == "BC6" {
@@ -324,7 +340,8 @@ pub fn py_save_exr(pixel_data: Bound<PyArray1<f32>>, width: u32, height: u32, pa
     let tmp = pixel_data.to_vec()?;
     write_rgba_file(path, width as usize, height as usize, |x, y| {
         let i = y * width as usize * 4 + x * 4;
-        (tmp[i + 0], tmp[i + 1], tmp[i + 2], tmp[i + 3]) }).map_err(|e| { PyException::new_err(e.to_string()) })?;
+        (tmp[i + 0], tmp[i + 1], tmp[i + 2], tmp[i + 3])
+    }).map_err(|e| { PyException::new_err(e.to_string()) })?;
     Ok(())
 }
 
@@ -349,7 +366,8 @@ pub fn py_encode_exr<'py>(py: Python<'py>, pixel_data: Bound<PyArray1<f32>>, wid
     let tmp = pixel_data.to_vec()?;
     let channels = SpecificChannels::rgba(|Vec2(x, y)| {
         let i = y * width as usize * 4 + x * 4;
-        (tmp[i + 0], tmp[i + 1], tmp[i + 2], tmp[i + 3]) });
+        (tmp[i + 0], tmp[i + 1], tmp[i + 2], tmp[i + 3])
+    });
     Image::from_channels((width as usize, height as usize), channels).write().to_buffered(&mut cursor).map_err(|e| { PyException::new_err(e.to_string()) })?;
     Ok(PyBytes::new_bound(py, cursor.into_inner().as_slice()))
 }
@@ -371,6 +389,7 @@ fn rustlib(_: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_save_exr, m)?)?;
     m.add_function(wrap_pyfunction!(py_encode_exr, m)?)?;
     m.add_function(wrap_pyfunction!(py_load_vtf_texture, m)?)?;
+    m.add_function(wrap_pyfunction!(py_save_vtf_texture, m)?)?;
     m.add_function(wrap_pyfunction!(py_decode_texture, m)?)?;
     Ok(())
 }

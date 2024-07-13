@@ -15,28 +15,31 @@ name = "playground"
 name = "generate_pyi"
 
 [dependencies]
-pyo3 = { version = "0.21.2", features = ["abi3", "experimental-inspect", "abi3-py37", "extension-module"] }
+pyo3 = { version = "0.21.0", features = ["abi3", "experimental-inspect", "abi3-py37", "extension-module"] }
 numpy = { version = "0.21.0", features = ["half"] }
 lz4-sys = { git = "https://github.com/REDxEYE/lz4-rs" }
-zstd = "0.13.1"
+zstd = "0.13.2"
 binread = "2.2.0"
-bitflags = "2.5.0"
-regex = "1.10.4"
-thiserror = "1.0.59"
+bitflags = "2.6.0"
+regex = "1.10.5"
+thiserror = "1.0.62"
 byteorder = "1.5.0"
-uuid = { version = "1.8.0", features = ["v4"] }
-log = "0.4.21"
+uuid = { version = "1.10.0", features = ["v4"] }
+log = "0.4.22"
 half = { version = "2.4.1", features = ["std", "zerocopy"] }
-nalgebra = { version = "0.32.5" }
+nalgebra = { version = "0.33.0" }
 fnmatch-regex2 = "0.3.0"
 rayon = "1.10.0"
+
 vtflib2 = { git = "https://github.com/lasa01/vtflib2-rs", features = ["static"] }
-texture2ddecoder = { version = "0.0.5", features = ["alloc"] }
+texture2ddecoder = { version = "0.1.1", features = ["alloc"] }
 png = "0.17.13"
 exr = "1.72.0"
 
-[dev-dependencies]
+#[patch."https://github.com/lasa01/vtflib2-sys"]
+#vtflib2-sys = { git = "https://github.com/REDxEYE/vtflib2-sys"}
 
+[dev-dependencies]
 binary-reader = "0.4.5"
 
 [profile.release]

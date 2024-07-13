@@ -73,8 +73,11 @@ pub mod compressed_index_buffer {
             return Err("Index buffer is too short.");
         }
 
-        if buffer[0] != INDEX_HEADER {
+        if buffer[0]&0xF0 != INDEX_HEADER {
             return Err("Incorrect index buffer header.");
+        }
+        if buffer[0] &0x0F > 1{
+            return Err("Unsupported version");
         }
 
         let mut vertex_fifo: [u32; 16] = [0; 16];
