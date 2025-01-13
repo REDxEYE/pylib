@@ -27,6 +27,7 @@ use utils::decode_vertex_buffer;
 use crate::utils::bc6::decode_bc6;
 use crate::utils::lz4_chain::{LZ4ChainDecoder as LZ4ChainDecoderInner, SAFE_C_INT_MAX};
 use crate::vpk::Vpk as InnerVpk;
+use crate::vpk::VpkReader;
 
 pub mod dmx;
 pub mod errors;
@@ -37,7 +38,7 @@ pub mod vpk;
 
 #[pyclass]
 pub struct Vpk {
-    pub vpk: InnerVpk,
+    pub vpk: Box<dyn VpkReader>,
 }
 
 #[pymethods]
