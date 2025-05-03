@@ -26,7 +26,7 @@ impl<R: Read + Seek> FromReader<R> for VpkHeader {
     fn from_reader(reader: &mut R) -> io::Result<Self> {
         let file_size = reader.seek(SeekFrom::End(-1))? + 1;
         let vtmb_vpk_version = reader.read_u8()?;
-        if vtmb_vpk_version == 0 {
+        if vtmb_vpk_version == 0 || vtmb_vpk_version == 1 {
             reader.seek(SeekFrom::End(-9))?;
             let _entry_count = reader.read_u32le()?;
             let dir_offset = reader.read_u32le()?;
