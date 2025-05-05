@@ -329,7 +329,8 @@ impl VpkReader for SourceVpk {
 impl VtmbVpk{
     #[inline(always)]
     fn get_content(&mut self, entry_id: usize) -> Option<Vec<u8>> {
-        let entry = &self.entry_list[entry_id];
+        assert!(entry_id > 1);
+        let entry = &self.entry_list[entry_id - 1];
         let mut file = File::open(&self.file_path).ok()?;
         file.seek(SeekFrom::Start(
             entry.offset.into()
