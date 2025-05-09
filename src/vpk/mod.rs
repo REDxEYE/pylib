@@ -26,7 +26,7 @@ impl<R: Read + Seek> FromReader<R> for VpkHeader {
     fn from_reader(reader: &mut R) -> io::Result<Self> {
         let file_size = reader.seek(SeekFrom::End(-1))? + 1;
         let vtmb_vpk_version = reader.read_u8()?;
-        if vtmb_vpk_version == 0 {
+        if vtmb_vpk_version == 0 || vtmb_vpk_version == 1 {
             reader.seek(SeekFrom::End(-9))?;
             let _entry_count = reader.read_u32le()?;
             let dir_offset = reader.read_u32le()?;
@@ -329,7 +329,8 @@ impl VpkReader for SourceVpk {
 impl VtmbVpk{
     #[inline(always)]
     fn get_content(&mut self, entry_id: usize) -> Option<Vec<u8>> {
-        let entry = &self.entry_list[entry_id];
+        assert!(entry_id > 1);
+        let entry = &self.entry_list[entry_id - 1];
         let mut file = File::open(&self.file_path).ok()?;
         file.seek(SeekFrom::Start(
             entry.offset.into()
