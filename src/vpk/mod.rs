@@ -24,26 +24,27 @@ struct VpkHeader {
 
 impl<R: Read + Seek> FromReader<R> for VpkHeader {
     fn from_reader(reader: &mut R) -> io::Result<Self> {
-        let file_size = reader.seek(SeekFrom::End(-1))? + 1;
-        let vtmb_vpk_version = reader.read_u8()?;
-        if vtmb_vpk_version == 0 || vtmb_vpk_version == 1 {
-            reader.seek(SeekFrom::End(-9))?;
-            let _entry_count = reader.read_u32le()?;
-            let dir_offset = reader.read_u32le()?;
-            if u64::from(dir_offset) < file_size {
-                return Ok(VpkHeader {
-                    version: (vtmb_vpk_version.into(), 0),
-                    tree_size: 0,
-                    file_data_section_size: 0,
-                    archive_md5_section_size: 0,
-                    other_md5_section_size: 0,
-                    signature_section_size: 0,
-                });
-            }
-        }
         reader.seek(SeekFrom::Start(0))?;
         let magic = reader.read_u32le()?;
         if magic != 0x55AA1234 {
+            let file_size = reader.seek(SeekFrom::End(-1))? + 1;
+            let vtmb_vpk_version = reader.read_u8()?;
+            if vtmb_vpk_version == 0 || vtmb_vpk_version == 1 {
+                reader.seek(SeekFrom::End(-9))?;
+                let _entry_count = reader.read_u32le()?;
+                let dir_offset = reader.read_u32le()?;
+                if u64::from(dir_offset) < file_size {
+                    return Ok(VpkHeader {
+                        version: (vtmb_vpk_version.into(), 0),
+                        tree_size: 0,
+                        file_data_section_size: 0,
+                        archive_md5_section_size: 0,
+                        other_md5_section_size: 0,
+                        signature_section_size: 0,
+                    });
+                }
+            }
+
             return Err(io::Error::new(
                 InvalidData,
                 SourceError::InvalidHeader(
@@ -53,6 +54,7 @@ impl<R: Read + Seek> FromReader<R> for VpkHeader {
                 ),
             ));
         }
+        
         let version = (reader.read_u16le()?, reader.read_u16le()?);
         let tree_size = reader.read_u32le()?;
         if version.0 == 1 {
@@ -152,7 +154,7 @@ impl SourceVpkEntry {
 
 trait SeekRead: Read + Seek {}
 
-pub trait VpkReader: Debug + Send {
+pub trait VpkReader: Debug + Send + Sync {
     fn find_file(&mut self, name: &str) -> Option<Vec<u8>>;
     fn contains(&self, name: &str) -> bool;
     fn filter(&mut self, pattern: &str) -> Vec<(String, Vec<u8>)>;

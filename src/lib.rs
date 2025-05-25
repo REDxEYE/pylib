@@ -38,7 +38,7 @@ pub mod vpk;
 
 #[pyclass]
 pub struct Vpk {
-    pub vpk: Box<dyn VpkReader>,
+    pub vpk: Box<dyn VpkReader + Sync>,
 }
 
 #[pymethods]
