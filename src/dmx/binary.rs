@@ -75,7 +75,7 @@ impl DmxBinaryV5 {
                 let count = reader.read_u32::<LE>()?;
                 let mut items = Vec::with_capacity(count as usize);
                 for _ in 0..count {
-                    items.push(Rc::from(reader.read_ztstring_buf()?));
+                    items.push(Rc::from(reader.read_ztstring_buf(true)?));
                 }
                 Ok(DmPropValue::StringArray(items))
             }
@@ -126,7 +126,7 @@ impl serializer::DmxDeserialize for DmxBinaryV5 {
                     DmPropValue::ElementRef(ref mut index) => {
                         *property.1 = match index {
                             -1 => DmPropValue::NullElement,
-                            -2 => DmPropValue::ExternalElement(Uuid::from_str(reader.read_ztstring_buf()?.as_str()).map_err(|e| { DmxError::UnknownIOError { source: Error::new(ErrorKind::Other, e) } })?),
+                            -2 => DmPropValue::ExternalElement(Uuid::from_str(reader.read_ztstring_buf(true)?.as_str()).map_err(|e| { DmxError::UnknownIOError { source: Error::new(ErrorKind::Other, e) } })?),
                             _ => DmPropValue::Element(Rc::clone(&elements[*index as usize]))
                         }
                     }
@@ -135,7 +135,7 @@ impl serializer::DmxDeserialize for DmxBinaryV5 {
                         for index in indices.iter() {
                             let elem = match index {
                                 -1 => DmPropValue::NullElement,
-                                -2 => DmPropValue::ExternalElement(Uuid::from_str(reader.read_ztstring_buf()?.as_str()).map_err(|e| { DmxError::UnknownIOError { source: Error::new(ErrorKind::Other, e) } })?),
+                                -2 => DmPropValue::ExternalElement(Uuid::from_str(reader.read_ztstring_buf(true)?.as_str()).map_err(|e| { DmxError::UnknownIOError { source: Error::new(ErrorKind::Other, e) } })?),
                                 _ => DmPropValue::Element(Rc::clone(&elements[*index as usize]))
                             };
                             referenced_elements.push(elem)

@@ -10,7 +10,7 @@ use byteorder::ReadBytesExt;
 use fnmatch_regex2::glob_to_regex;
 
 use crate::errors::SourceError;
-use crate::utils::reader_utils::{BufReadExt, FromReader, ReadExt, ReadSeekExt};
+use crate::utils::reader_utils::{BufReadExt, FromReader, ReadExt};
 
 #[derive(Debug, Default)]
 struct VpkHeader {
@@ -122,7 +122,7 @@ struct SourceVpkEntry {
 }
 
 impl SourceVpkEntry {
-    fn from_reader<R: BufRead>(reader: &mut R) -> io::Result<Self> {
+    fn from_reader<R: BufRead+Seek>(reader: &mut R) -> io::Result<Self> {
         let mut entry = SourceVpkEntry {
             file_name: "".into(),
             crc32: reader.read_u32le()?,
@@ -205,17 +205,17 @@ impl SourceVpk {
         let mut entry_list = Vec::new();
         let tree_offset = reader.stream_position()?;
         loop {
-            let type_name = reader.read_ztstring_buf()?;
+            let type_name = reader.read_ztstring_buf(false)?;
             if type_name.is_empty() {
                 break;
             }
             loop {
-                let directory_name = reader.read_ztstring_buf()?;
+                let directory_name = reader.read_ztstring_buf(false)?;
                 if directory_name.is_empty() {
                     break;
                 }
                 loop {
-                    let file_name = reader.read_ztstring_buf()?;
+                    let file_name = reader.read_ztstring_buf(false)?;
                     if file_name.is_empty() {
                         break;
                     }

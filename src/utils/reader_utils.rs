@@ -1,19 +1,38 @@
+use byteorder::{ReadBytesExt, LE};
+use half::f16;
 use std::io::{self, BufRead, Error, ErrorKind, Read, Seek, SeekFrom};
 
-use byteorder::{LE, ReadBytesExt};
-use half::f16;
-
 pub trait FromReader<R>: Sized
-    where R: Read + Seek {
+where
+    R: Read + Seek,
+{
     fn from_reader(reader: &mut R) -> io::Result<Self>;
 }
 
-pub trait BufReadExt: BufRead {
-    fn read_ztstring_buf(&mut self) -> io::Result<String> {
+fn latin1_to_string(bytes: &[u8]) -> String {
+    bytes.iter().map(|&b| b as char).collect()
+}
+
+pub trait BufReadExt: BufRead + Seek {
+        fn read_ztstring_buf(&mut self, is_utf8: bool) -> io::Result<String> {
         let mut buffer = Vec::new();
         self.read_until(0, &mut buffer)?;
         buffer.truncate(buffer.len() - 1);
-        String::from_utf8(buffer).map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))
+        if is_utf8 {
+            String::from_utf8(buffer).map_err(|e| {
+                Error::new(
+                    ErrorKind::InvalidData,
+                    format!(
+                        "{} at offset {:?}",
+                        e.to_string(),
+                        self.stream_position().unwrap_or(0)
+                    ),
+                )
+            })
+        }else{
+            Ok(latin1_to_string(buffer.as_slice()))
+        }
+
     }
 }
 
@@ -35,7 +54,16 @@ pub trait ReadSeekExt: Read + Seek {
                 buffer.extend_from_slice(&chunk[..size]); // Add all read bytes if no zero found
             }
         }
-        String::from_utf8(buffer).map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))
+        String::from_utf8(buffer).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "{} at offset {:?}",
+                    e.to_string(),
+                    self.stream_position().unwrap_or(0)
+                ),
+            )
+        })
     }
     #[inline]
     fn read_pztstring(&mut self, base_offset: u64) -> io::Result<String> {
@@ -48,23 +76,30 @@ pub trait ReadSeekExt: Read + Seek {
     }
 }
 
-pub trait ReadExt: Read {
+pub trait ReadExt: Read + Seek {
     #[inline]
     fn read_fixed_string(&mut self, len: usize) -> io::Result<String> {
         let mut buf = vec![0u8; len + 1];
         self.read_exact(&mut buf[..len])?;
         let nul_index = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
         let valid_buf = &buf[..nul_index];
-        String::from_utf8(valid_buf.to_vec()).map_err(|e| Error::new(ErrorKind::InvalidData, e.to_string()))
+        String::from_utf8(valid_buf.to_vec()).map_err(|e| {
+            Error::new(
+                ErrorKind::InvalidData,
+                format!(
+                    "{} at offset {:?}",
+                    e.to_string(),
+                    self.stream_position().unwrap_or(0)
+                ),
+            )
+        })
     }
-
 
     #[inline]
     fn read_relptr(&mut self, base: u64) -> io::Result<u64> {
         let i = self.read_i32le()?;
         Ok(base.wrapping_add_signed(i as i64))
     }
-
 
     #[inline]
     fn read_u16le(&mut self) -> io::Result<u16> {
@@ -99,6 +134,6 @@ pub trait ReadExt: Read {
 
 impl<R: Read + Seek + ?Sized> ReadSeekExt for R {}
 
-impl<R: Read + ?Sized> ReadExt for R {}
+impl<R: Read + ?Sized + Seek> ReadExt for R {}
 
-impl<R: BufRead + ?Sized> BufReadExt for R {}
+impl<R: BufRead + ?Sized + Seek> BufReadExt for R {}
