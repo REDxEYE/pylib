@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+#[macro_use]
+extern crate num_derive;
 use std::ffi::c_int;
 use std::fs::File;
 use std::io::{Cursor, Write};
@@ -9,13 +11,15 @@ use std::sync::Mutex;
 use exr::image::{Image, SpecificChannels};
 use exr::math::Vec2;
 use exr::prelude::WritableImage;
-use lz4_sys::{LZ4StreamDecode, LZ4_compress_default, LZ4_decompress_safe, LZ4_decompress_safe_continue};
+use lz4_sys::{
+    LZ4StreamDecode, LZ4_compress_default, LZ4_decompress_safe, LZ4_decompress_safe_continue,
+};
 use numpy::{PyArray1, PyArrayMethods};
 use pyo3::exceptions::{PyBufferError, PyException, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString, PyType};
 use rayon::prelude::*;
-use vtflib2::{ImageFormat, MipmapFilter, VtfFile};
+use vtflib2::{ImageFormat, VtfFile};
 use zstd::stream::{copy_encode as zstd_encode_stream, decode_all as zstd_decode_stream};
 use zstd::zstd_safe::compress as zstd_compress;
 use zstd::zstd_safe::compress_bound as zstd_compress_bound;
@@ -35,6 +39,7 @@ pub mod shared;
 pub mod source_model;
 pub mod utils;
 pub mod vpk;
+pub mod vtf;
 
 #[pyclass]
 pub struct Vpk {
@@ -59,7 +64,7 @@ impl Vpk {
     ) -> PyResult<Option<Bound<'p, PyBytes>>> {
         match self.vpk.find_file(&path.to_string()) {
             None => Ok(None),
-            Some(data) => Ok(Some(PyBytes::new_bound(py, data.as_slice()))),
+            Some(data) => Ok(Some(PyBytes::new(py, data.as_slice()))),
         }
     }
 
@@ -74,8 +79,8 @@ impl Vpk {
             .iter()
             .map(|(key, data)| {
                 (
-                    PyString::new_bound(py, key.as_str()),
-                    PyBytes::new_bound(py, data.as_slice()),
+                    PyString::new(py, key.as_str()),
+                    PyBytes::new(py, data.as_slice()),
                 )
             })
             .collect())
@@ -92,7 +97,7 @@ impl Vpk {
 //     ring_buffer: Vec<u8>,
 //     ring_offset: usize,
 // }
-// 
+//
 // #[pymethods]
 // impl LZ4ContinueDecoder {
 //     #[new]
@@ -105,7 +110,7 @@ impl Vpk {
 //             ring_offset: 0,
 //         }
 //     }
-// 
+//
 //     #[pyo3(signature = (src, decompressed_size))]
 //     fn decompress<'p>(
 //         &mut self,
@@ -113,13 +118,13 @@ impl Vpk {
 //         src: Vec<u8>,
 //         decompressed_size: u32,
 //     ) -> PyResult<Bound<'p, PyBytes>> {
-// 
+//
 //         unsafe{
 //             LZ4_decompress_safe_continue(self.inner,src.as_ptr(),)
 //         }
-//         Ok(PyBytes::new_bound(py, dst.as_slice()))
+//         Ok(PyBytes::new(py, dst.as_slice()))
 //     }
-// 
+//
 //     fn __del__(&mut self) {
 //         unsafe { LZ4_freeStreamDecode(self.inner); }
 //     }
@@ -134,7 +139,7 @@ struct LZ4ChainDecoder {
 impl LZ4ChainDecoder {
     #[new]
     #[pyo3(signature = (block_size, extra_blocks))]
-    fn new(block_size: u32, extra_blocks:u32) -> Self {
+    fn new(block_size: u32, extra_blocks: u32) -> Self {
         LZ4ChainDecoder {
             inner: LZ4ChainDecoderInner::new(block_size as isize, extra_blocks as isize),
         }
@@ -156,7 +161,7 @@ impl LZ4ChainDecoder {
         self.inner
             .decode_and_drain(src.as_slice(), dst.as_mut_slice())
             .map_err(|e| PyBufferError::new_err(e))?;
-        Ok(PyBytes::new_bound(py, dst.as_slice()))
+        Ok(PyBytes::new(py, dst.as_slice()))
     }
 }
 
@@ -175,8 +180,8 @@ pub fn py_decode_vertex_buffer(
         vertex_size as usize,
         input_data.as_slice(),
     )
-        .map_err(|e| PyException::new_err(e.to_string()))?;
-    Ok(PyBytes::new_bound(py, dest.as_slice()))
+    .map_err(|e| PyException::new_err(e.to_string()))?;
+    Ok(PyBytes::new(py, dest.as_slice()))
 }
 
 #[pyfunction]
@@ -194,8 +199,8 @@ pub fn py_decode_index_buffer(
         index_size as usize,
         input_data.as_slice(),
     )
-        .map_err(|e| PyException::new_err(e.to_string()))?;
-    Ok(PyBytes::new_bound(py, dest.as_slice()))
+    .map_err(|e| PyException::new_err(e.to_string()))?;
+    Ok(PyBytes::new(py, dest.as_slice()))
 }
 
 #[pyfunction]
@@ -206,9 +211,9 @@ pub fn py_zstd_decompress(
     decompressed_size: usize,
 ) -> PyResult<Bound<PyBytes>> {
     let mut dest = vec![0u8; decompressed_size];
-    zstd_decompress(&mut dest, input_data.as_slice())
+    let res = zstd_decompress(&mut dest, input_data.as_slice())
         .map_err(|e| PyBufferError::new_err(e.to_string()))?;
-    Ok(PyBytes::new_bound(py, dest.as_slice()))
+    Ok(PyBytes::new(py, dest.as_slice()))
 }
 
 #[pyfunction]
@@ -217,7 +222,7 @@ pub fn py_zstd_compress(py: Python, input_data: Vec<u8>) -> PyResult<Bound<PyByt
     let mut dest = vec![0u8; 16];
     let dest_size = zstd_compress(&mut dest, input_data.as_slice(), 0)
         .map_err(|e| PyBufferError::new_err(e.to_string()))?;
-    Ok(PyBytes::new_bound(py, &dest[..dest_size]))
+    Ok(PyBytes::new(py, &dest[..dest_size]))
 }
 
 #[pyfunction]
@@ -225,7 +230,7 @@ pub fn py_zstd_compress(py: Python, input_data: Vec<u8>) -> PyResult<Bound<PyByt
 pub fn py_zstd_compress_stream(py: Python, input_data: Vec<u8>) -> PyResult<Bound<PyBytes>> {
     let mut dest = vec![0u8; zstd_compress_bound(input_data.len())];
     zstd_encode_stream(Cursor::new(input_data), Cursor::new(&mut dest), 0)?;
-    Ok(PyBytes::new_bound(py, dest.as_slice()))
+    Ok(PyBytes::new(py, dest.as_slice()))
 }
 
 #[pyfunction]
@@ -233,7 +238,7 @@ pub fn py_zstd_compress_stream(py: Python, input_data: Vec<u8>) -> PyResult<Boun
 pub fn py_zstd_decompress_stream(py: Python, input_data: Vec<u8>) -> PyResult<Bound<PyBytes>> {
     let dest = zstd_decode_stream(Cursor::new(input_data.as_slice()))
         .map_err(|e| PyBufferError::new_err(e.to_string()))?;
-    Ok(PyBytes::new_bound(py, dest.as_slice()))
+    Ok(PyBytes::new(py, dest.as_slice()))
 }
 
 #[pyfunction]
@@ -263,7 +268,7 @@ pub fn py_lz4_decompress(
             decompressed_size, real_decompressed_size
         )));
     }
-    Ok(PyBytes::new_bound(py, data.as_slice()))
+    Ok(PyBytes::new(py, data.as_slice()))
 }
 
 #[pyfunction]
@@ -282,7 +287,7 @@ pub fn py_lz4_decompress_continue(
     let mut data = vec![0u8; decompressed_size as usize];
     let real_decompressed_size = unsafe {
         LZ4_decompress_safe_continue(
-            context as (*mut LZ4StreamDecode),
+            context as *mut LZ4StreamDecode,
             input_data.as_ptr().cast(),
             data.as_mut_ptr().cast(),
             input_data.len() as c_int,
@@ -295,7 +300,7 @@ pub fn py_lz4_decompress_continue(
             decompressed_size, real_decompressed_size
         )));
     }
-    Ok(PyBytes::new_bound(py, data.as_slice()))
+    Ok(PyBytes::new(py, data.as_slice()))
 }
 
 #[pyfunction]
@@ -316,10 +321,7 @@ pub fn py_lz4_compress(py: Python, input_data: Vec<u8>) -> PyResult<Bound<PyByte
         ) as u32
     };
 
-    Ok(PyBytes::new_bound(
-        py,
-        &dst[..real_compressed_size as usize],
-    ))
+    Ok(PyBytes::new(py, &dst[..real_compressed_size as usize]))
 }
 
 #[pyfunction]
@@ -388,7 +390,7 @@ pub fn py_load_vtf_texture(
                 format,
                 ImageFormat::Rgba32323232F,
             )
-                .map_err(|_| PyException::new_err("Failed to convert to RGBA8888"))?,
+            .map_err(|_| PyException::new_err("Failed to convert to RGBA8888"))?,
             32u32,
         ),
         ImageFormat::NvDst16 => {
@@ -414,7 +416,7 @@ pub fn py_load_vtf_texture(
         }
     };
     Ok((
-        PyBytes::new_bound(py, converted_data.as_slice()),
+        PyBytes::new(py, converted_data.as_slice()),
         vtf.width(),
         vtf.height(),
         bpp,
@@ -425,7 +427,7 @@ pub fn py_load_vtf_texture(
 #[pyo3(signature = (output_path, width, height, format, generate_mips, resize, version, resize_size, pixel_data), name = "save_vtf_texture"
 )]
 pub fn py_save_vtf_texture<'p>(
-    py: Python<'p>,
+    _py: Python<'p>,
     output_path: &Bound<'p, PyAny>,
     width: u32,
     height: u32,
@@ -470,7 +472,7 @@ pub fn py_decode_texture<'py>(
             height as usize,
             false,
         )
-            .map_err(|e| PyException::new_err(e.to_string()))?;
+        .map_err(|e| PyException::new_err(e.to_string()))?;
         let decompressed = Mutex::new(vec![0; (height * width * 4 * 4) as usize]); // Use Mutex to protect the vector
 
         const CHUNK_SIZE: usize = 128 * 128;
@@ -489,7 +491,7 @@ pub fn py_decode_texture<'py>(
                 decompressed[start..start + local_buf.len()].copy_from_slice(&local_buf);
             });
 
-        Ok(PyBytes::new_bound(
+        Ok(PyBytes::new(
             py,
             decompressed.into_inner().unwrap().as_slice(),
         ))
@@ -503,7 +505,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             "BC3" | "DXT5" => {
                 texture2ddecoder::decode_bc3(
@@ -512,7 +514,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             "BC4" | "ATI1N" => {
                 texture2ddecoder::decode_bc4(
@@ -521,7 +523,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             "BC5" | "ATI2N" => {
                 texture2ddecoder::decode_bc5(
@@ -530,7 +532,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             "BC7" => {
                 texture2ddecoder::decode_bc7(
@@ -539,7 +541,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             "ETC1" => {
                 texture2ddecoder::decode_etc1(
@@ -548,7 +550,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             "ETC2" => {
                 texture2ddecoder::decode_etc2_rgba8(
@@ -557,7 +559,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             "EACRG" => {
                 texture2ddecoder::decode_eacrg(
@@ -566,7 +568,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             "EACR" => {
                 texture2ddecoder::decode_eacr(
@@ -575,7 +577,7 @@ pub fn py_decode_texture<'py>(
                     height as usize,
                     pixels.as_mut_slice(),
                 )
-                    .map_err(|e| PyException::new_err(e))?;
+                .map_err(|e| PyException::new_err(e))?;
             }
             _ => {
                 return Err(PyException::new_err(format!(
@@ -604,7 +606,7 @@ pub fn py_decode_texture<'py>(
                 let start = index * CHUNK_SIZE * 4;
                 decompressed[start..start + local_buf.len()].copy_from_slice(&local_buf);
             });
-        Ok(PyBytes::new_bound(
+        Ok(PyBytes::new(
             py,
             decompressed.into_inner().unwrap().as_slice(),
         ))
@@ -647,7 +649,7 @@ pub fn py_save_exr(
         let i = y * width as usize * 4 + x * 4;
         (tmp[i + 0], tmp[i + 1], tmp[i + 2], tmp[i + 3])
     })
-        .map_err(|e| PyException::new_err(e.to_string()))?;
+    .map_err(|e| PyException::new_err(e.to_string()))?;
     Ok(())
 }
 
@@ -673,7 +675,7 @@ pub fn py_encode_png<'py>(
     writer
         .finish()
         .map_err(|e| PyException::new_err(e.to_string()))?;
-    Ok(PyBytes::new_bound(py, cursor.into_inner().as_slice()))
+    Ok(PyBytes::new(py, cursor.into_inner().as_slice()))
 }
 
 #[pyfunction]
@@ -694,7 +696,7 @@ pub fn py_encode_exr<'py>(
         .write()
         .to_buffered(&mut cursor)
         .map_err(|e| PyException::new_err(e.to_string()))?;
-    Ok(PyBytes::new_bound(py, cursor.into_inner().as_slice()))
+    Ok(PyBytes::new(py, cursor.into_inner().as_slice()))
 }
 
 #[pymodule]
