@@ -26,7 +26,13 @@ jobs:
       - name: Bundle artifacts
         run: |
           mkdir artifacts
-          cp build/Release/pylib.pyd artifacts/ || true
+          if (Test-Path build/Release/pylib.*) {
+            Copy-Item build/Release/pylib.* artifacts/
+          } elseif (Test-Path build/pylib.*) {
+            Copy-Item build/pylib.* artifacts/
+          } else {
+            Write-Host "No pylib artifacts found."
+          }
       - name: Zip artifacts
         run: powershell Compress-Archive -Path artifacts/* -DestinationPath windows-artifacts.zip
       - name: Upload artifact
@@ -86,7 +92,7 @@ jobs:
       - name: Create universal binary
         run: |
           mkdir -p build_universal
-          lipo -create build_x86_64/Release/pylib.so build_arm64/Release/pylib.so -output build_universal/pylib.so
+          lipo -create build_x86_64/Release/pylib.so build_arm64/Release/pylib.abi3.so -output build_universal/pylib.abi3.so
       - name: List universal binary
         run: lipo -info build_universal/pylib.so
       - name: Bundle artifacts
