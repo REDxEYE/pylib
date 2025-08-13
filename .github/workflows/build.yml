@@ -23,13 +23,11 @@ jobs:
         run: cmake -S . -B build -DPython3_ROOT_DIR=${{ env.pythonLocation }} -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
       - name: Build
         run: cmake --build build --config Release --target pylib
-      - name: Zip artifacts
-        run: powershell Compress-Archive -Path build/Release/pylib.pyd -DestinationPath windows-artifacts.zip
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-binaries
-          path: windows-binaries.zip
+          name: windows build
+          path: build/Release/pylib.pyd
 
   build-linux:
     runs-on: ubuntu-latest
@@ -52,8 +50,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: linux-binaries
-          path: linux-binaries.zip
+          name: linux build
+          path: build/pylib.abi3.so
 
   build-macos-universal:
     runs-on: macos-latest
@@ -78,21 +76,15 @@ jobs:
       - name: Create universal binary
         run: |
           ls -la
-          mkdir -p build_universal
-          lipo -create build_x86_64/Release/pylib.abi3.so build_arm64/Release/pylib.abi3.so -output build_universal/pylib.abi3.so
+          mkdir -p build_universal/build_x86_64/Release
+          lipo -create ./build_x86_64/Release/pylib.abi3.so ./build_arm64/Release/pylib.abi3.so -output ./build_universal/pylib.abi3.so
       - name: List universal binary
         run: lipo -info build_universal/pylib.so
-      - name: Bundle artifacts
-        run: |
-          mkdir artifacts
-          cp build_universal/pylib.so artifacts/ || true
-      - name: Zip artifacts
-        run: zip -j macos-binaries.zip artifacts/*
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macos-binaries
-          path: macos-binaries.zip
+          name: macos build
+          path: build_universal/pylib.so
 
   bundle-artifacts:
     runs-on: ubuntu-latest
