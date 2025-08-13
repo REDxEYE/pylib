@@ -48,6 +48,6 @@ if(WIN32)
     target_link_libraries(pylib PRIVATE Shlwapi)
 endif()
 
-target_link_directories(pylib PRIVATE C:/Users/RED/AppData/Local/Programs/Python/Python313/libs)
-target_include_directories(pylib PRIVATE include ext/tinyexr ext/vtflib/src ext/tinyexr ext/tinyexr/deps/miniz)
+#target_link_directories(pylib PRIVATE C:/Users/RED/AppData/Local/Programs/Python/Python313/libs)
+target_include_directories(pylib PRIVATE ./include ext/tinyexr ext/vtflib/src ext/tinyexr ext/tinyexr/deps/miniz)
 target_include_directories(pylib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/ext/vtflib/src")
