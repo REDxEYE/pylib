@@ -51,6 +51,3 @@ endif()
 target_link_directories(pylib PRIVATE C:/Users/RED/AppData/Local/Programs/Python/Python313/libs)
 target_include_directories(pylib PRIVATE include ext/tinyexr ext/vtflib/src ext/tinyexr ext/tinyexr/deps/miniz)
 target_include_directories(pylib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/ext/vtflib/src")
-add_custom_command(TARGET pylib POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:pylib> D:/projects/python/SourceIOPlugin/SourceIO/library/utils/rustlib/
-)
