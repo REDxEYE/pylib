@@ -2,9 +2,9 @@ name: Build pylib
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ rewrite ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ rewrite ]
 
 jobs:
   build-windows:
