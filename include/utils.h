@@ -5,7 +5,7 @@
 #include <limits>
 #include "Python.h"
 
-#define CPF(fn)  _PyCFunction_CAST(fn)
+#define CPF(fn)  (PyCFunction)(fn)
 
 PyObject *type_error(const char *arg, const char *expected, PyObject *got);
 
