@@ -26,7 +26,7 @@ jobs:
       - name: Bundle artifacts
         run: |
           mkdir artifacts
-          dir uild/Release
+          dir build/Release
           if (Test-Path build/Release/pylib.*) {
             Copy-Item build/Release/pylib.* artifacts/
           } elseif (Test-Path build/pylib.*) {
@@ -93,7 +93,7 @@ jobs:
       - name: Create universal binary
         run: |
           mkdir -p build_universal
-          lipo -create build_x86_64/Release/pylib.so build_arm64/Release/pylib.abi3.so -output build_universal/pylib.abi3.so
+          lipo -create build_x86_64/Release/pylib.abi3.so build_arm64/Release/pylib.abi3.so -output build_universal/pylib.abi3.so
       - name: List universal binary
         run: lipo -info build_universal/pylib.so
       - name: Bundle artifacts
