@@ -1,0 +1,16 @@
+[submodule "ext/zstd"]
+	path = ext/zstd
+	url = https://github.com/facebook/zstd
+
+[submodule "ext/lz4"]
+	path = ext/lz4
+	url = https://github.com/lz4/lz4
+[submodule "ext/meshoptimizer"]
+	path = ext/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer
+[submodule "ext/tinyexr"]
+	path = ext/tinyexr
+	url = https://github.com/syoyo/tinyexr
+[submodule "ext/vtflib"]
+	path = ext/vtflib
+	url = https://github.com/lasa01/VTFLib

@@ -1,0 +1,125 @@
+name: Build pylib
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+      - name: Configure
+        run: cmake -S . -B build -DPython3_ROOT_DIR=${{ env.pythonLocation }} -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Bundle artifacts
+        run: |
+          mkdir artifacts
+          cp build/Release/pylib.* artifacts/ || cp build/pylib.* artifacts/ || true
+      - name: Zip artifacts
+        run: powershell Compress-Archive -Path artifacts/* -DestinationPath windows-artifacts.zip
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-binaries
+          path: windows-binaries.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential python3-dev zip
+      - name: Configure
+        run: cmake -S . -B build -DPython3_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
+      - name: Build
+        run: cmake --build build --config Release
+      - name: Bundle artifacts
+        run: |
+          mkdir artifacts
+          cp build/pylib.* artifacts/ || true
+      - name: Zip artifacts
+        run: zip -j linux-binaries.zip artifacts/*
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries
+          path: linux-binaries.zip
+
+  build-macos-universal:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install CMake
+        run: brew install cmake
+      - name: Build x86_64
+        run: |
+          cmake -S . -B build_x86_64 -DCMAKE_OSX_ARCHITECTURES=x86_64 -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
+          cmake --build build_x86_64 --config Release
+      - name: Build arm64
+        run: |
+          cmake -S . -B build_arm64 -DCMAKE_OSX_ARCHITECTURES=arm64 -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
+          cmake --build build_arm64 --config Release
+      - name: Create universal binary
+        run: |
+          mkdir -p build_universal
+          lipo -create build_x86_64/Release/pylib.so build_arm64/Release/pylib.so -output build_universal/pylib.so
+      - name: List universal binary
+        run: lipo -info build_universal/pylib.so
+      - name: Bundle artifacts
+        run: |
+          mkdir artifacts
+          cp build_universal/pylib.so artifacts/ || true
+      - name: Zip artifacts
+        run: zip -j macos-binaries.zip artifacts/*
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-binaries
+          path: macos-binaries.zip
+
+  bundle-artifacts:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux, build-macos-universal]
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-binaries
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-binaries
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-binaries
+      - name: Unzip all artifacts
+        run: |
+          unzip -o windows-binaries.zip -d all_artifacts
+          unzip -o linux-binaries.zip -d all_artifacts
+          unzip -o macos-binaries.zip -d all_artifacts
+      - name: Create combined zip
+        run: zip -r all-platforms-binaries.zip all_artifacts
+      - name: Upload combined artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-platforms-binaries
+          path: all-platforms-binaries.zip
