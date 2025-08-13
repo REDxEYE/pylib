@@ -26,6 +26,7 @@ jobs:
       - name: Bundle artifacts
         run: |
           mkdir artifacts
+          dir uild/Release
           if (Test-Path build/Release/pylib.*) {
             Copy-Item build/Release/pylib.* artifacts/
           } elseif (Test-Path build/pylib.*) {
