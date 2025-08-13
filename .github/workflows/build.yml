@@ -23,19 +23,8 @@ jobs:
         run: cmake -S . -B build -DPython3_ROOT_DIR=${{ env.pythonLocation }} -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
       - name: Build
         run: cmake --build build --config Release --target pylib
-      - name: Bundle artifacts
-        run: |
-          mkdir artifacts
-          dir build/Release
-          if (Test-Path build/Release/pylib.*) {
-            Copy-Item build/Release/pylib.* artifacts/
-          } elseif (Test-Path build/pylib.*) {
-            Copy-Item build/pylib.* artifacts/
-          } else {
-            Write-Host "No pylib artifacts found."
-          }
       - name: Zip artifacts
-        run: powershell Compress-Archive -Path artifacts/* -DestinationPath windows-artifacts.zip
+        run: powershell Compress-Archive -Path build/Release/pylib.pyd -DestinationPath windows-artifacts.zip
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -58,12 +47,8 @@ jobs:
         run: cmake -S . -B build -DPython3_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
       - name: Build
         run: cmake --build build --config Release --target pylib
-      - name: Bundle artifacts
-        run: |
-          mkdir artifacts
-          cp build/pylib.* artifacts/ || true
       - name: Zip artifacts
-        run: zip -j linux-binaries.zip artifacts/*
+        run: zip -j linux-binaries.zip build/pylib.abi3.so
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -92,6 +77,7 @@ jobs:
           cmake --build build_arm64 --config Release --target pylib
       - name: Create universal binary
         run: |
+          ls -la
           mkdir -p build_universal
           lipo -create build_x86_64/Release/pylib.abi3.so build_arm64/Release/pylib.abi3.so -output build_universal/pylib.abi3.so
       - name: List universal binary
