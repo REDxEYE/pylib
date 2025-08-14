@@ -2,12 +2,6 @@
 #include "vpk_glob_iterator.h"
 #include <format>
 
-#if defined(_MSC_VER)
-#include <shlwapi.h>
-#else
-#include <fnmatch.h>
-#endif
-
 PyObject *VPKFile_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
     VPKFile *self;
     self = (VPKFile *) PyType_GenericAlloc(type, 0);
@@ -17,6 +11,7 @@ PyObject *VPKFile_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
 void VPKFile_dealloc(VPKFile *self) {
     delete self->m_stream;
     delete self->m_entries;
+    delete self->m_names;
     freefunc(PyType_GetSlot(Py_TYPE(self), Py_tp_free))(self);
 }
 
@@ -48,11 +43,12 @@ std::string read_zero_terminated_string(std::ifstream &stream) {
 int VPKFile_init(VPKFile *self, PyObject *args, PyObject *kwds) {
     static const char *kwlist[] = {"path", nullptr};
     const char *path = nullptr;
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s",  const_cast<char **>(kwlist), &path))
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", const_cast<char **>(kwlist), &path))
         return -1;
 
     self->m_path = std::string(path);
     self->m_stream = new std::ifstream(self->m_path, std::ios::binary | std::ios::in);
+    self->m_names = new std::unordered_set<std::string>;
     self->m_entries = new std::vector<VPKEntry>;
     if (!self->m_stream->is_open()) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to open VPK file");
@@ -77,6 +73,7 @@ int VPKFile_init(VPKFile *self, PyObject *args, PyObject *kwds) {
             uint32_t name_len;
             stream.read((char *) &name_len, 4);
             entry.name.resize(name_len);
+            self->m_names->emplace(entry.name);
             stream.read(entry.name.data(), name_len);
             stream.read((char *) &entry.offset, 4);
             stream.read((char *) &entry.size, 4);
@@ -109,6 +106,7 @@ int VPKFile_init(VPKFile *self, PyObject *args, PyObject *kwds) {
                     if (file_name.empty())
                         break;
                     auto entry_name = build_entry_name(directory_name, file_name, type_name);
+                    self->m_names->emplace(entry_name);
                     struct {
                         uint32_t crc;
                         uint16_t preload_size, archive_id;
@@ -179,7 +177,7 @@ PyObject *VPKFile_find_file(VPKFile *self, PyObject *const *args, Py_ssize_t nar
 
 PyObject *get_entry_data(VPKFile *self, const VPKEntry &entry) {
     if (entry.archive_id == -1) {
-        self->m_stream->seekg((uint32_t) self->m_embedded_data_start+entry.offset);
+        self->m_stream->seekg((uint32_t) self->m_embedded_data_start + entry.offset);
         PyObject *data = PyBytes_FromStringAndSize(nullptr, (Py_ssize_t) (entry.size + entry.preload.size()));
         if (!data) {
             return nullptr;
@@ -246,4 +244,26 @@ PyObject *VPKFile_glob(VPKFile *self, PyObject *const *args, Py_ssize_t nargs) {
     it->pattern_c = pat_c;
 
     return (PyObject *) it;
+}
+
+PyObject *VPKFile_check(VPKFile *self, PyObject *const *args, Py_ssize_t nargs) {
+    if (nargs != 1) {
+        PyErr_SetString(PyExc_TypeError, "check(name: str) takes exactly 1 argument");
+        return nullptr;
+    }
+    if (!PyUnicode_Check(args[0])) {
+        PyErr_SetString(PyExc_TypeError, "name must be a str");
+        return nullptr;
+    }
+    Py_ssize_t name_len;
+    const char *name = PyUnicode_AsUTF8AndSize(args[0], &name_len);
+    if (!name) {
+        PyErr_SetString(PyExc_ValueError, "Invalid string");
+        return nullptr;
+    }
+
+    if (self->m_names->contains(name)) {
+        Py_RETURN_TRUE;
+    }
+    Py_RETURN_FALSE;
 }

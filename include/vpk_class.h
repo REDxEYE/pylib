@@ -4,6 +4,7 @@
 #include <Python.h>
 #include <string>
 #include <fstream>
+#include <unordered_set>
 #include <vector>
 #include "utils.h"
 
@@ -20,17 +21,25 @@ struct VPKFile {
     std::string m_path;
     std::ifstream* m_stream;
     std::vector<VPKEntry> *m_entries;
+    std::unordered_set<std::string>* m_names;
     size_t m_embedded_data_start;
     std::string m_chunked_base;
 };
 PyObject* VPKFile_find_file(VPKFile *self, PyObject *const *args, Py_ssize_t nargs);
 PyObject* VPKFile_glob(VPKFile *self, PyObject *const *args, Py_ssize_t nargs);
+PyObject* VPKFile_check(VPKFile *self, PyObject *const *args, Py_ssize_t nargs);
 
 PyDoc_STRVAR(VPKFile_find_file_doc,
              "find_file($self, /, name)\n"
              "--\n"
              "\n"
              "Find a file in the VPK by its name. Returns a tuple (offset, size, archive_id) if found, or None if not found.\n");
+
+PyDoc_STRVAR(VPKFile_check_doc,
+             "check($self, /, name)\n"
+             "--\n"
+             "\n"
+             "Check if a file exists in the VPK by its name. Returns True if found, False otherwise.\n");
 
 PyDoc_STRVAR(VPKFile_glob_doc,
              "glob($self, /, pattern)\n"
@@ -40,6 +49,7 @@ PyDoc_STRVAR(VPKFile_glob_doc,
 
 static PyMethodDef VPKFile_class_methods[] = {
         {"find_file", CPF(VPKFile_find_file), METH_FASTCALL, VPKFile_find_file_doc},
+        {"check", CPF(VPKFile_check), METH_FASTCALL, VPKFile_check_doc},
         {"glob", CPF(VPKFile_glob), METH_FASTCALL, VPKFile_glob_doc},
         {nullptr, nullptr, 0, nullptr}
 };
