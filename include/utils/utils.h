@@ -26,5 +26,6 @@ inline int mul3_checked_psszt(Py_ssize_t a, Py_ssize_t b, Py_ssize_t c, Py_ssize
 }
 
 PyObject* create_int_enum(const char* name, const std::span<std::pair<std::string, uint32_t>>& members);
+PyObject *create_int_flags(const char *name, const std::span<std::pair<std::string, uint32_t>> &members);
 
 #endif //PYLIB_UTILS_H

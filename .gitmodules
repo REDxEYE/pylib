@@ -13,4 +13,4 @@
 	url = https://github.com/syoyo/tinyexr
 [submodule "ext/vtflib"]
 	path = ext/vtflib
-	url = https://github.com/lasa01/VTFLib
+	url = https://github.com/REDxEYE/VTFLib

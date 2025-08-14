@@ -3,13 +3,17 @@
 
 #include "classes/vtf_class.h"
 #include "utils/vtf_utils.h"
+#include "VTFWrapper.h"
 
 using namespace VTFLib;
 
 inline void set_vtf_error(VTFLib::Diagnostics::CError &error) {
     const vlChar *msg = error.Get();
-    if (msg && *msg) PyErr_SetString(PyExc_RuntimeError, msg);
-    else PyErr_SetString(PyExc_RuntimeError, "VTFLib error");
+    if (msg && *msg) {
+        PyErr_SetString(PyExc_RuntimeError, msg);
+    } else {
+        PyErr_SetString(PyExc_RuntimeError, "VTFLib error");
+    }
 }
 
 PyObject *VTF_load(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -27,12 +31,6 @@ PyObject *VTF_load(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
     PyObject *path_bytes = nullptr;
     if (!PyUnicode_FSConverter(args[0], &path_bytes)) return nullptr;
     const char *cpath = PyBytes_AsString(path_bytes);
-
-//    for(int i = 0; i<strlen(cpath);i++){
-//        if (cpath[i] == '\\') {
-//            cpath[i] = '/'; // Normalize backslashes to forward slashes
-//        }
-//    }
 
     if (!cpath) {
         Py_DECREF(path_bytes);
@@ -495,4 +493,37 @@ PyObject *VTF_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
 void VTF_dealloc(VTFObject *self) {
     delete self->file;
     freefunc(PyType_GetSlot(Py_TYPE(self), Py_tp_free))(self);
+}
+
+PyObject *VTF_create_from_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
+    if (nargs < 2 || nargs > 9) {
+        PyErr_SetString(PyExc_TypeError,
+                        "create(width:int, height:int, frames=1, faces=1, slices=1, format=IMAGE_FORMAT_RGBA8888, thumbnail=True, mipmaps=True)");
+        return nullptr;
+    }
+    vlByte *data = (vlByte *) PyBytes_AsString(args[0]);
+    Py_ssize_t width = PyLong_AsSsize_t(args[1]);
+    Py_ssize_t height = PyLong_AsSsize_t(args[2]);
+    if (width <= 0 || height <= 0) {
+        PyErr_SetString(PyExc_ValueError, "width and height must be > 0");
+        return nullptr;
+    }
+    Py_ssize_t frames = (nargs > 3) ? PyLong_AsSsize_t(args[3]) : 1;
+    Py_ssize_t faces = (nargs > 4) ? PyLong_AsSsize_t(args[4]) : 1;
+    Py_ssize_t slices = (nargs > 5) ? PyLong_AsSsize_t(args[5]) : 1;
+    tagVTFImageFormat fmt = (tagVTFImageFormat) ((nargs > 6) ? PyLong_AsUnsignedLong(args[6])
+                                                             : (vlUInt) IMAGE_FORMAT_RGBA8888);
+    bool thumbnail = nargs <= 7 || (bool) PyObject_IsTrue(args[7]);
+    bool mipmaps = nargs <= 8 || (bool) PyObject_IsTrue(args[8]);
+    VTFLib::Diagnostics::CError error;
+    SVTFCreateOptions options;
+    vlImageCreateDefaultCreateStructure(&options);
+    options.ImageFormat = fmt;
+    options.bThumbnail = thumbnail;
+    options.bMipmaps = mipmaps;
+    if (!self->file->Create(width, height, frames, faces, slices, &data, options, error)) {
+        set_vtf_error(error);
+        return nullptr;
+    }
+    Py_RETURN_NONE;
 }

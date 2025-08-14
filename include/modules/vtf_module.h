@@ -1,7 +1,3 @@
-//
-// Created by RED on 12.08.2025.
-//
-
 #ifndef PYLIB_VTF_MODULE_H
 #define PYLIB_VTF_MODULE_H
 
@@ -73,46 +69,47 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
         return nullptr;
     }
 
-    std::vector<std::pair<std::string, uint32_t >> image_format_members = {{"RGBA8888",          IMAGE_FORMAT_RGBA8888},
-                                                                           {"ABGR8888",          IMAGE_FORMAT_ABGR8888},
-                                                                           {"RGB888",            IMAGE_FORMAT_RGB888},
-                                                                           {"BGR888",            IMAGE_FORMAT_BGR888},
-                                                                           {"RGB565",            IMAGE_FORMAT_RGB565},
-                                                                           {"I8",                IMAGE_FORMAT_I8},
-                                                                           {"IA88",              IMAGE_FORMAT_IA88},
-                                                                           {"P8",                IMAGE_FORMAT_P8},
-                                                                           {"A8",                IMAGE_FORMAT_A8},
-                                                                           {"RGB888_BLUESCREEN", IMAGE_FORMAT_RGB888_BLUESCREEN},
-                                                                           {"BGR888_BLUESCREEN", IMAGE_FORMAT_BGR888_BLUESCREEN},
-                                                                           {"ARGB8888",          IMAGE_FORMAT_ARGB8888},
-                                                                           {"BGRA8888",          IMAGE_FORMAT_BGRA8888},
-                                                                           {"DXT1",              IMAGE_FORMAT_DXT1},
-                                                                           {"DXT3",              IMAGE_FORMAT_DXT3},
-                                                                           {"DXT5",              IMAGE_FORMAT_DXT5},
-                                                                           {"BGRX8888",          IMAGE_FORMAT_BGRX8888},
-                                                                           {"BGR565",            IMAGE_FORMAT_BGR565},
-                                                                           {"BGRX5551",          IMAGE_FORMAT_BGRX5551},
-                                                                           {"BGRA4444",          IMAGE_FORMAT_BGRA4444},
-                                                                           {"DXT1_ONEBITALPHA",  IMAGE_FORMAT_DXT1_ONEBITALPHA},
-                                                                           {"BGRA5551",          IMAGE_FORMAT_BGRA5551},
-                                                                           {"UV88",              IMAGE_FORMAT_UV88},
-                                                                           {"UVWQ8888",          IMAGE_FORMAT_UVWQ8888},
-                                                                           {"RGBA16161616F",     IMAGE_FORMAT_RGBA16161616F},
-                                                                           {"RGBA16161616",      IMAGE_FORMAT_RGBA16161616},
-                                                                           {"UVLX8888",          IMAGE_FORMAT_UVLX8888},
-                                                                           {"R32F",              IMAGE_FORMAT_R32F},
-                                                                           {"RGB323232F",        IMAGE_FORMAT_RGB323232F},
-                                                                           {"RGBA32323232F",     IMAGE_FORMAT_RGBA32323232F},
-                                                                           {"NV_DST16",          IMAGE_FORMAT_NV_DST16},
-                                                                           {"NV_DST24",          IMAGE_FORMAT_NV_DST24},
-                                                                           {"NV_INTZ",           IMAGE_FORMAT_NV_INTZ},
-                                                                           {"NV_RAWZ",           IMAGE_FORMAT_NV_RAWZ},
-                                                                           {"ATI_DST16",         IMAGE_FORMAT_ATI_DST16},
-                                                                           {"ATI_DST24",         IMAGE_FORMAT_ATI_DST24},
-                                                                           {"NV_NULL",           IMAGE_FORMAT_NV_NULL},
-                                                                           {"ATI2N",             IMAGE_FORMAT_ATI2N},
-                                                                           {"ATI1N",             IMAGE_FORMAT_ATI1N}};
-    PyObject* my_enum;
+    std::vector<std::pair<std::string, uint32_t>> image_format_members = {
+            {"RGBA8888",          IMAGE_FORMAT_RGBA8888},
+            {"ABGR8888",          IMAGE_FORMAT_ABGR8888},
+            {"RGB888",            IMAGE_FORMAT_RGB888},
+            {"BGR888",            IMAGE_FORMAT_BGR888},
+            {"RGB565",            IMAGE_FORMAT_RGB565},
+            {"I8",                IMAGE_FORMAT_I8},
+            {"IA88",              IMAGE_FORMAT_IA88},
+            {"P8",                IMAGE_FORMAT_P8},
+            {"A8",                IMAGE_FORMAT_A8},
+            {"RGB888_BLUESCREEN", IMAGE_FORMAT_RGB888_BLUESCREEN},
+            {"BGR888_BLUESCREEN", IMAGE_FORMAT_BGR888_BLUESCREEN},
+            {"ARGB8888",          IMAGE_FORMAT_ARGB8888},
+            {"BGRA8888",          IMAGE_FORMAT_BGRA8888},
+            {"DXT1",              IMAGE_FORMAT_DXT1},
+            {"DXT3",              IMAGE_FORMAT_DXT3},
+            {"DXT5",              IMAGE_FORMAT_DXT5},
+            {"BGRX8888",          IMAGE_FORMAT_BGRX8888},
+            {"BGR565",            IMAGE_FORMAT_BGR565},
+            {"BGRX5551",          IMAGE_FORMAT_BGRX5551},
+            {"BGRA4444",          IMAGE_FORMAT_BGRA4444},
+            {"DXT1_ONEBITALPHA",  IMAGE_FORMAT_DXT1_ONEBITALPHA},
+            {"BGRA5551",          IMAGE_FORMAT_BGRA5551},
+            {"UV88",              IMAGE_FORMAT_UV88},
+            {"UVWQ8888",          IMAGE_FORMAT_UVWQ8888},
+            {"RGBA16161616F",     IMAGE_FORMAT_RGBA16161616F},
+            {"RGBA16161616",      IMAGE_FORMAT_RGBA16161616},
+            {"UVLX8888",          IMAGE_FORMAT_UVLX8888},
+            {"R32F",              IMAGE_FORMAT_R32F},
+            {"RGB323232F",        IMAGE_FORMAT_RGB323232F},
+            {"RGBA32323232F",     IMAGE_FORMAT_RGBA32323232F},
+            {"NV_DST16",          IMAGE_FORMAT_NV_DST16},
+            {"NV_DST24",          IMAGE_FORMAT_NV_DST24},
+            {"NV_INTZ",           IMAGE_FORMAT_NV_INTZ},
+            {"NV_RAWZ",           IMAGE_FORMAT_NV_RAWZ},
+            {"ATI_DST16",         IMAGE_FORMAT_ATI_DST16},
+            {"ATI_DST24",         IMAGE_FORMAT_ATI_DST24},
+            {"NV_NULL",           IMAGE_FORMAT_NV_NULL},
+            {"ATI2N",             IMAGE_FORMAT_ATI2N},
+            {"ATI1N",             IMAGE_FORMAT_ATI1N}};
+    PyObject *my_enum;
     my_enum = create_int_enum("ImageFormat", image_format_members);
     if (!my_enum) return nullptr;
 
@@ -121,50 +118,83 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
         return nullptr;
     }
 
-    std::vector<std::pair<std::string, uint32_t >> mip_filter_members = {{"POINT",     MIPMAP_FILTER_POINT},
-                                                                         {"BOX",       MIPMAP_FILTER_BOX},
-                                                                         {"TRIANGLE",  MIPMAP_FILTER_TRIANGLE},
-                                                                         {"QUADRATIC", MIPMAP_FILTER_QUADRATIC},
-                                                                         {"CUBIC",     MIPMAP_FILTER_CUBIC},
-                                                                         {"CATROM",    MIPMAP_FILTER_CATROM},
-                                                                         {"MITCHELL",  MIPMAP_FILTER_MITCHELL},
-                                                                         {"GAUSSIAN",  MIPMAP_FILTER_GAUSSIAN},
-                                                                         {"SINC",      MIPMAP_FILTER_SINC},
-                                                                         {"BESSEL",    MIPMAP_FILTER_BESSEL},
-                                                                         {"HANNING",   MIPMAP_FILTER_HANNING},
-                                                                         {"HAMMING",   MIPMAP_FILTER_HAMMING},
-                                                                         {"BLACKMAN",  MIPMAP_FILTER_BLACKMAN},
-                                                                         {"KAISER",    MIPMAP_FILTER_KAISER}};
+    std::vector<std::pair<std::string, uint32_t>> mip_filter_members = {
+            {"POINT",     MIPMAP_FILTER_POINT},
+            {"BOX",       MIPMAP_FILTER_BOX},
+            {"TRIANGLE",  MIPMAP_FILTER_TRIANGLE},
+            {"QUADRATIC", MIPMAP_FILTER_QUADRATIC},
+            {"CUBIC",     MIPMAP_FILTER_CUBIC},
+            {"CATROM",    MIPMAP_FILTER_CATROM},
+            {"MITCHELL",  MIPMAP_FILTER_MITCHELL},
+            {"GAUSSIAN",  MIPMAP_FILTER_GAUSSIAN},
+            {"SINC",      MIPMAP_FILTER_SINC},
+            {"BESSEL",    MIPMAP_FILTER_BESSEL},
+            {"HANNING",   MIPMAP_FILTER_HANNING},
+            {"HAMMING",   MIPMAP_FILTER_HAMMING},
+            {"BLACKMAN",  MIPMAP_FILTER_BLACKMAN},
+            {"KAISER",    MIPMAP_FILTER_KAISER}};
 
     my_enum = create_int_enum("MipFilter", mip_filter_members);
     if (PyModule_AddObject(module, "MipFilter", my_enum) < 0) {
         Py_DECREF(my_enum);
         return nullptr;
     }
-    std::vector<std::pair<std::string, uint32_t >> constants{
-            {"FILTEW_NONE",           SHARPEN_FILTER_NONE},
-            {"FILTEW_NEGATIVE",       SHARPEN_FILTER_NEGATIVE},
-            {"FILTEW_LIGHTER",        SHARPEN_FILTER_LIGHTER},
-            {"FILTEW_DARKER",         SHARPEN_FILTER_DARKER},
-            {"FILTEW_CONTRASTMORE",   SHARPEN_FILTER_CONTRASTMORE},
-            {"FILTEW_CONTRASTLESS",   SHARPEN_FILTER_CONTRASTLESS},
-            {"FILTEW_SMOOTHEN",       SHARPEN_FILTER_SMOOTHEN},
-            {"FILTEW_SHARPENSOFT",    SHARPEN_FILTER_SHARPENSOFT},
-            {"FILTEW_SHARPENMEDIUM",  SHARPEN_FILTER_SHARPENMEDIUM},
-            {"FILTEW_SHARPENSTRONG",  SHARPEN_FILTER_SHARPENSTRONG},
-            {"FILTEW_FINDEDGES",      SHARPEN_FILTER_FINDEDGES},
-            {"FILTEW_CONTOUR",        SHARPEN_FILTER_CONTOUR},
-            {"FILTEW_EDGEDETECT",     SHARPEN_FILTER_EDGEDETECT},
-            {"FILTEW_EDGEDETECTSOFT", SHARPEN_FILTER_EDGEDETECTSOFT},
-            {"FILTEW_EMBOSS",         SHARPEN_FILTER_EMBOSS},
-            {"FILTEW_MEANREMOVAL",    SHARPEN_FILTER_MEANREMOVAL},
-            {"FILTEW_UNSHARP",        SHARPEN_FILTER_UNSHARP},
-            {"FILTEW_XSHARPEN",       SHARPEN_FILTER_XSHARPEN},
-            {"FILTEW_WARPSHARP",      SHARPEN_FILTER_WARPSHARP},
+    std::vector<std::pair<std::string, uint32_t>> constants{
+            {"NONE",           SHARPEN_FILTER_NONE},
+            {"NEGATIVE",       SHARPEN_FILTER_NEGATIVE},
+            {"LIGHTER",        SHARPEN_FILTER_LIGHTER},
+            {"DARKER",         SHARPEN_FILTER_DARKER},
+            {"CONTRASTMORE",   SHARPEN_FILTER_CONTRASTMORE},
+            {"CONTRASTLESS",   SHARPEN_FILTER_CONTRASTLESS},
+            {"SMOOTHEN",       SHARPEN_FILTER_SMOOTHEN},
+            {"SHARPENSOFT",    SHARPEN_FILTER_SHARPENSOFT},
+            {"SHARPENMEDIUM",  SHARPEN_FILTER_SHARPENMEDIUM},
+            {"SHARPENSTRONG",  SHARPEN_FILTER_SHARPENSTRONG},
+            {"FINDEDGES",      SHARPEN_FILTER_FINDEDGES},
+            {"CONTOUR",        SHARPEN_FILTER_CONTOUR},
+            {"EDGEDETECT",     SHARPEN_FILTER_EDGEDETECT},
+            {"EDGEDETECTSOFT", SHARPEN_FILTER_EDGEDETECTSOFT},
+            {"EMBOSS",         SHARPEN_FILTER_EMBOSS},
+            {"MEANREMOVAL",    SHARPEN_FILTER_MEANREMOVAL},
+            {"UNSHARP",        SHARPEN_FILTER_UNSHARP},
+            {"XSHARPEN",       SHARPEN_FILTER_XSHARPEN},
+            {"WARPSHARP",      SHARPEN_FILTER_WARPSHARP},
     };
 
-    my_enum = create_int_enum("SharpenFilter", mip_filter_members);
+    my_enum = create_int_enum("SharpenFilter", constants);
     if (PyModule_AddObject(module, "SharpenFilter", my_enum) < 0) {
+        Py_DECREF(my_enum);
+        return nullptr;
+    }
+    std::vector<std::pair<std::string, uint32_t>> flags{
+            {"POINTSAMPLE",                              TEXTUREFLAGS_POINTSAMPLE},
+            {"TRILINEAR",                                TEXTUREFLAGS_TRILINEAR},
+            {"CLAMPS",                                   TEXTUREFLAGS_CLAMPS},
+            {"CLAMPT",                                   TEXTUREFLAGS_CLAMPT},
+            {"ANISOTROPIC",                              TEXTUREFLAGS_ANISOTROPIC},
+            {"HINT_DXT5",                                TEXTUREFLAGS_HINT_DXT5},
+            {"SRGB",                                     TEXTUREFLAGS_SRGB},
+            {"NORMAL",                                   TEXTUREFLAGS_NORMAL},
+            {"NOMIP",                                    TEXTUREFLAGS_NOMIP},
+            {"NOLOD",                                    TEXTUREFLAGS_NOLOD},
+            {"MINMIP",                                   TEXTUREFLAGS_MINMIP},
+            {"PROCEDURAL",                               TEXTUREFLAGS_PROCEDURAL},
+            {"ONEBITALPHA",                              TEXTUREFLAGS_ONEBITALPHA},
+            {"EIGHTBITALPHA",                            TEXTUREFLAGS_EIGHTBITALPHA},
+            {"ENVMAP",                                   TEXTUREFLAGS_ENVMAP},
+            {"RENDERTARGET",                             TEXTUREFLAGS_RENDERTARGET},
+            {"DEPTHRENDERTARGET",                        TEXTUREFLAGS_DEPTHRENDERTARGET},
+            {"NODEBUGOVERRIDE",                          TEXTUREFLAGS_NODEBUGOVERRIDE},
+            {"SINGLECOPY",                               TEXTUREFLAGS_SINGLECOPY},
+            {"NODEPTHBUFFER",                            TEXTUREFLAGS_NODEPTHBUFFER},
+            {"CLAMPU",                                   TEXTUREFLAGS_CLAMPU},
+            {"VERTEXTEXTURE",                            TEXTUREFLAGS_VERTEXTEXTURE},
+            {"SSBUMP",                                   TEXTUREFLAGS_SSBUMP},
+            {"BORDER",                                   TEXTUREFLAGS_BORDER},
+    };
+
+    my_enum = create_int_flags("TextureFlags", flags);
+    if (PyModule_AddObject(module, "TextureFlags", my_enum) < 0) {
         Py_DECREF(my_enum);
         return nullptr;
     }

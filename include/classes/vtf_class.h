@@ -37,11 +37,16 @@ PyDoc_STRVAR(VTF_to_bytes_doc,
              "Serialize the VTF to a bytes object (.vtf file contents).");
 
 PyDoc_STRVAR(VTF_create_doc,
-             "create($self, /, width, height, frames=1, faces=1, slices=1,\n"
-             "       format=IMAGE_FORMAT_RGBA8888, thumbnail=True, mipmaps=True)\n"
+             "create($self, /, width, height, frames=1, faces=1, slices=1, format=ImageFormat.RGBA8888, thumbnail=True, mipmaps=True)\n"
              "--\n"
              "\n"
              "Create a new VTF image with the given dimensions, layout and format.");
+
+PyDoc_STRVAR(VTF_create_from_data_doc,
+            "create_from_data($self, /, data, width, height, frames=1, faces=1, slices=1, format=ImageFormat.RGBA8888, thumbnail=True, mipmaps=True)\n"
+             "--\n"
+             "\n"
+             "Create a new VTF image with the given data, dimensions, layout and format.");
 
 PyDoc_STRVAR(VTF_set_data_doc,
              "set_data($self, /, frame, face, slice, mip, data)\n"
@@ -69,8 +74,7 @@ PyDoc_STRVAR(VTF_get_flag_doc,
              "Return True if the given flag is set.");
 
 PyDoc_STRVAR(VTF_generate_mipmaps_doc,
-             "generate_mipmaps($self, /, mipmap_filter=MIPMAP_FILTER_BOX,\n"
-             "                 sharpen_filter=SHARPEN_FILTER_NONE)\n"
+             "generate_mipmaps($self, /, mipmap_filter=MipFilter.BOX, sharpen_filter=SharpenFilter.NONE)\n"
              "--\n"
              "\n"
              "Generate mipmaps using the selected filters.");
@@ -140,6 +144,8 @@ PyObject *VTF_to_bytes(VTFObject *self, PyObject *const *args, Py_ssize_t nargs)
 
 PyObject *VTF_create(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
 
+PyObject *VTF_create_from_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
+
 PyObject *VTF_set_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
 
 PyObject *VTF_get_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
@@ -160,6 +166,7 @@ static PyMethodDef vtf_class_methods[] = {
         {"save",                 CPF(VTF_save),                 METH_FASTCALL, VTF_save_doc},
         {"to_bytes",             CPF(VTF_to_bytes),             METH_FASTCALL, VTF_to_bytes_doc},
         {"create",               CPF(VTF_create),               METH_FASTCALL, VTF_create_doc},
+        {"create_from_data",     CPF(VTF_create_from_data),     METH_FASTCALL, VTF_create_from_data_doc},
         {"set_data",             CPF(VTF_set_data),             METH_FASTCALL, VTF_set_data_doc},
         {"get_data",             CPF(VTF_get_data),             METH_FASTCALL, VTF_get_data_doc},
         {"set_flag",             CPF(VTF_set_flag),             METH_FASTCALL, VTF_set_flag_doc},
