@@ -81,12 +81,12 @@ jobs:
           mkdir -p build_universal
           lipo -create ./build_x86_64/pylib.abi3.so ./build_arm64/pylib.abi3.so -output ./build_universal/pylib.abi3.so
       - name: List universal binary
-        run: lipo -info build_universal/pylib.so
+        run: lipo -info ./build_universal/pylib.abi3.so
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos build
-          path: build_universal/pylib.so
+          path: ./build_universal/pylib.abi3.so
 
   bundle-artifacts:
     runs-on: ubuntu-latest
