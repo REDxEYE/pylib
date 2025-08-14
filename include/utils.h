@@ -3,6 +3,7 @@
 
 #include <span>
 #include <limits>
+#include <string>
 #include "Python.h"
 
 #define CPF(fn)  (PyCFunction)(fn)
@@ -24,9 +25,6 @@ inline int mul3_checked_psszt(Py_ssize_t a, Py_ssize_t b, Py_ssize_t c, Py_ssize
     return mul_checked_psszt(t, c, out);
 }
 
-static std::span<uint8_t>
-slice(const std::span<uint8_t> &data, uint32_t start, size_t len = -1) {
-    return data.subspan(start, len);
-}
+PyObject* create_int_enum(const char* name, const std::span<std::pair<std::string, uint32_t>>& members);
 
 #endif //PYLIB_UTILS_H

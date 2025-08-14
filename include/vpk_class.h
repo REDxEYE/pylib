@@ -30,7 +30,7 @@ PyDoc_STRVAR(VPKFile_find_file_doc,
              "find_file($self, /, name)\n"
              "--\n"
              "\n"
-             "Find a file in the VPK by its name. Returns a tuple (offset, size, archive_id) if found, or None if not found.");
+             "Find a file in the VPK by its name. Returns a tuple (offset, size, archive_id) if found, or None if not found.\n");
 
 PyDoc_STRVAR(VPKFile_glob_doc,
              "glob($self, /, pattern)\n"

@@ -22,17 +22,20 @@ typedef struct {
 PyDoc_STRVAR(LZ4ChainDecoder_new_doc,
              "LZ4ChainDecoder($type, /, block_size, extra_blocks)\n"
              "--\n"
-             "Create a decoder with given block size and number of extra blocks.");
+             "\n"
+             "Create a decoder with given block size and number of extra blocks.\n");
 
 PyDoc_STRVAR(LZ4ChainDecoder_decompress_doc,
              "decompress($self, /, src, block_size)\n"
              "--\n"
-             "Decompress one chain block from 'src' into an output buffer of size 'block_size' and return bytes.");
+             "\n"
+             "Decompress one chain block from 'src' into an output buffer of size 'block_size' and return bytes.\n");
 
 PyDoc_STRVAR(LZ4ChainDecoder_type_doc,
              "LZ4ChainDecoder(block_size, extra_blocks)\n"
+             "--\n"
              "\n"
-             "Chain decoder for LZ4 blocks. Call decompress(src, block_size) to get bytes.");
+             "Chain decoder for LZ4 blocks. Call decompress(src, block_size) to get bytes.\n");
 
 
 PyObject *LZ4ChainDecoder_new(PyTypeObject *type, PyObject *args, PyObject *kwargs);

@@ -17,3 +17,49 @@ PyObject *type_error(const char* arg, const char* expected, PyObject* got) {
     Py_DECREF(n);
     return error;
 }
+
+PyObject *create_int_enum(const char *name, const std::span<std::pair<std::string, uint32_t>> &members) {
+    PyObject* enum_mod = PyImport_ImportModule("enum");
+    if (!enum_mod)
+        return nullptr;
+
+    PyObject* intenum_cls = PyObject_GetAttrString(enum_mod, "IntEnum");
+    Py_DECREF(enum_mod);
+    if (!intenum_cls)
+        return nullptr;
+
+    PyObject* members_dict = PyDict_New();
+    if (!members_dict) {
+        Py_DECREF(intenum_cls);
+        return nullptr;
+    }
+
+    for (const auto& kv : members) {
+        PyObject* val = PyLong_FromUnsignedLong(kv.second);
+        if (!val) {
+            Py_DECREF(members_dict);
+            Py_DECREF(intenum_cls);
+            return nullptr;
+        }
+        if (PyDict_SetItemString(members_dict, kv.first.c_str(), val) < 0) {
+            Py_DECREF(val);
+            Py_DECREF(members_dict);
+            Py_DECREF(intenum_cls);
+            return nullptr;
+        }
+        Py_DECREF(val);
+    }
+
+    PyObject* args = PyTuple_Pack(2, PyUnicode_FromString(name), members_dict);
+    Py_DECREF(members_dict);
+    if (!args) {
+        Py_DECREF(intenum_cls);
+        return nullptr;
+    }
+
+    PyObject* enum_type = PyObject_CallObject(intenum_cls, args);
+    Py_DECREF(args);
+    Py_DECREF(intenum_cls);
+
+    return enum_type;  // new reference
+}

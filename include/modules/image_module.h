@@ -69,25 +69,32 @@ static struct PyModuleDef image_module_def = {
 };
 
 static PyObject *ImageModule_Init(PyObject *parent_module) {
-    PyObject *compression_module = PyModule_Create(&image_module_def);
-    if (!compression_module) {
-        Py_DECREF(compression_module);
+    PyObject *module = PyModule_Create(&image_module_def);
+    if (!module) {
+        Py_DECREF(module);
         return nullptr;
     }
 
-    if (PyModule_AddObjectRef(parent_module, "image", compression_module) < 0) {
-        Py_DECREF(compression_module);
-        Py_DECREF(parent_module);
+    if (PyModule_AddObject(parent_module, "image", module) < 0) {
+        Py_DECREF(module);
         return nullptr;
     }
 
     PyObject *modules = PyImport_GetModuleDict();
-    if (PyDict_SetItemString(modules, "pylib.image", compression_module) < 0) {
-        Py_DECREF(compression_module);
-        Py_DECREF(parent_module);
+    if (PyDict_SetItemString(modules, "pylib.image", module) < 0) {
+        Py_DECREF(module);
         return nullptr;
     }
-    return compression_module;
+    // Set __path__ attribute for the submodule
+    PyObject *path_list = Py_BuildValue("[s]", "pylib/image");
+    if (path_list) {
+        if (PyModule_AddObject(module, "__path__", path_list) < 0) {
+            Py_DECREF(path_list);
+            Py_DECREF(module);
+            return nullptr;
+        }
+    }
+    return module;
 }
 
 #endif //PYLIB_IMAGE_MODULE_H

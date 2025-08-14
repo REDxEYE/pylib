@@ -31,12 +31,10 @@ PyMODINIT_FUNC PyInit_pylib(void) {
     if (!root)
         return nullptr;
 
-    PyObject *empty_list = PyList_New(0);
-    if (!empty_list) { Py_DECREF(root); return NULL; }
-    if (PyModule_AddObjectRef(root, "__path__", empty_list) < 0) {
-        Py_DECREF(empty_list);
-        Py_DECREF(root);
-        return nullptr;
+    PyObject *path_list = Py_BuildValue("[s]", "pylib");
+    if (path_list) {
+        PyModule_AddObject(root, "__path__", path_list);
+        Py_DECREF(path_list);
     }
 
     if(!CompressionModule_Init(root)){
