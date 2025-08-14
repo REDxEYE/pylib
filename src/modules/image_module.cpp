@@ -1,11 +1,11 @@
 #include <string>
 #include <functional>
 #include "modules/image_module.h"
-#include "stb_image_write.h"
 #include "tinyexr.h"
-#include "bcdec.h"
-#include "bcdec_helper.h"
-#include "etc.h"
+#include "ext/stb_image_write.h"
+#include "ext/bcdec.h"
+#include "ext/etc.h"
+#include "utils/bcdec_helper.h"
 
 
 static int valid_png_channels(int ch) {

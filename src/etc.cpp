@@ -1,7 +1,6 @@
 //Taken from https://github.com/K0lb3/texture2ddecoder
 
-#include "etc.h"
-#include <cstdint>
+#include "ext/etc.h"
 #include <cstring>
 #include <cstdlib>
 

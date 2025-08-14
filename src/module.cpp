@@ -3,7 +3,7 @@
 #include "modules/mesh_module.h"
 #include "modules/image_module.h"
 #include "modules/vtf_module.h"
-#include "vpk_class.h"
+#include "classes/vpk_class.h"
 
 #define PYLIB_MAJOR 0
 #define PYLIB_MINOR 1

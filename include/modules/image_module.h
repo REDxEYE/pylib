@@ -2,7 +2,7 @@
 #define PYLIB_IMAGE_MODULE_H
 
 #include <Python.h>
-#include "utils.h"
+#include "utils/utils.h"
 
 
 PyObject *py_save_png(PyObject *self, PyObject *const *args, Py_ssize_t nargs);

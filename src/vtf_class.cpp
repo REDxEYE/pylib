@@ -1,8 +1,8 @@
 #include <cmath>
-#include "vtf_class.h"
+#include "ext/stb_image_resize2.h"
 
-#include "stb_image_resize2.h"
-#include "vtf_utils.h"
+#include "classes/vtf_class.h"
+#include "utils/vtf_utils.h"
 
 using namespace VTFLib;
 

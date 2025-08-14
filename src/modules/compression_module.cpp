@@ -2,7 +2,7 @@
 // Created by RED on 11.08.2025.
 //
 #include "modules/compression_module.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 #include "zstd.h"
 #include "lz4.h"

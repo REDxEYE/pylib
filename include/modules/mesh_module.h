@@ -2,7 +2,7 @@
 #define PYLIB_MESH_MODULE_H
 
 #include <Python.h>
-#include "utils.h"
+#include "utils/utils.h"
 
 PyObject *py_decode_vertex_buffer(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 

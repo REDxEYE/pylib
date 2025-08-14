@@ -1,4 +1,4 @@
-#include "vpk_glob_iterator.h"
+#include "classes/vpk_glob_iterator.h"
 
 #if defined(_MSC_VER)
 #include <shlwapi.h>

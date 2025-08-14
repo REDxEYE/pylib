@@ -1,6 +1,6 @@
 #include <cstdint>
-#include "lz4_chaindecoder_class.h"
-#include "utils.h"
+#include "classes/lz4_chaindecoder_class.h"
+#include "utils/utils.h"
 
 
 void prepare(LZ4ChainDecoderObject *self, size_t block_size) {

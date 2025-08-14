@@ -1,5 +1,5 @@
-#include "vpk_class.h"
-#include "vpk_glob_iterator.h"
+#include "classes/vpk_class.h"
+#include "classes/vpk_glob_iterator.h"
 #include <format>
 
 PyObject *VPKFile_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {

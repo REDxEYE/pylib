@@ -2,7 +2,7 @@
 // Created by RED on 11.08.2025.
 //
 
-#include "utils.h"
+#include "utils/utils.h"
 
 PyObject *type_error(const char* arg, const char* expected, PyObject* got) {
     PyObject* t = PyObject_Type(got);              // new ref

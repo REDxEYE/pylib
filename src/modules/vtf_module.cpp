@@ -1,6 +1,6 @@
 #include "modules/vtf_module.h"
-#include "vtf_class.h"
-#include "vtf_utils.h"
+#include "classes/vtf_class.h"
+#include "utils/vtf_utils.h"
 #include "VTFLib.h"
 #include "VTFFormat.h"
 

@@ -2,8 +2,8 @@
 #define PYLIB_COMPRESSION_MODULE_H
 
 #include <Python.h>
-#include "utils.h"
-#include "lz4_chaindecoder_class.h"
+#include "utils/utils.h"
+#include "classes/lz4_chaindecoder_class.h"
 
 PyObject *py_zstd_decompress(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 

@@ -9,8 +9,8 @@
 #include <span>
 #include <string>
 #include <Python.h>
-#include "utils.h"
-#include "vtf_class.h"
+#include "utils/utils.h"
+#include "classes/vtf_class.h"
 #include "VTFFile.h"
 
 

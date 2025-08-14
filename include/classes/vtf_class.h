@@ -2,8 +2,8 @@
 #define PYLIB_VTF_CLASS_H
 
 #include <Python.h>
-#include "utils.h"
-#include <VTFFile.h>
+#include "utils/utils.h"
+#include "VTFFile.h"
 
 void set_vtf_error(VTFLib::Diagnostics::CError &error);
 
