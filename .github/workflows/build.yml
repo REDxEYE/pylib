@@ -75,7 +75,7 @@ jobs:
           cmake --build build_arm64 --config Release --target pylib
       - name: Create universal binary
         run: |
-          ls -la build_x86_64/Release
+          ls -la ./build_x86_64/Release
           mkdir -p build_universal
           lipo -create ./build_x86_64/Release/pylib.abi3.so ./build_arm64/Release/pylib.abi3.so -output ./build_universal/pylib.abi3.so
       - name: List universal binary
