@@ -179,7 +179,7 @@ PyObject *VPKFile_find_file(VPKFile *self, PyObject *const *args, Py_ssize_t nar
 
 PyObject *get_entry_data(VPKFile *self, const VPKEntry &entry) {
     if (entry.archive_id == -1) {
-        self->m_stream->seekg((uint32_t) entry.offset);
+        self->m_stream->seekg((uint32_t) self->m_embedded_data_start+entry.offset);
         PyObject *data = PyBytes_FromStringAndSize(nullptr, (Py_ssize_t) (entry.size + entry.preload.size()));
         if (!data) {
             return nullptr;
@@ -187,6 +187,7 @@ PyObject *get_entry_data(VPKFile *self, const VPKEntry &entry) {
         if (!entry.preload.empty()) {
             memcpy(PyBytes_AsString(data), entry.preload.data(), entry.preload.size());
         }
+        std::span<uint8_t> tmp = std::span((uint8_t *) PyBytes_AsString(data), entry.size + entry.preload.size());
         self->m_stream->read(PyBytes_AsString(data) + entry.preload.size(), entry.size);
         return data;
     } else {
@@ -205,62 +206,12 @@ PyObject *get_entry_data(VPKFile *self, const VPKEntry &entry) {
         if (!entry.preload.empty()) {
             memcpy(PyBytes_AsString(data), entry.preload.data(), entry.preload.size());
         }
+        std::span<uint8_t> tmp = std::span((uint8_t *) PyBytes_AsString(data), entry.size + entry.preload.size());
         chunk_stream.read(PyBytes_AsString(data) + entry.preload.size(), entry.size);
         chunk_stream.close();
         return data;
     }
 }
-
-//PyObject *VPKFile_glob(VPKFile *self, PyObject *const *args, Py_ssize_t nargs) {
-//    if (nargs != 1) {
-//        PyErr_SetString(PyExc_TypeError, "glob(pattern: str) takes exactly 1 argument");
-//        return nullptr;
-//    }
-//    if (!PyUnicode_Check(args[0])) {
-//        PyErr_SetString(PyExc_TypeError, "pattern must be a str");
-//        return nullptr;
-//    }
-//    Py_ssize_t pattern_len;
-//    const char *pattern = PyUnicode_AsUTF8AndSize(args[0], &pattern_len);
-//    if (!pattern) {
-//        PyErr_SetString(PyExc_ValueError, "Invalid string");
-//        return nullptr;
-//    }
-//
-//    PyObject *result = PyList_New(0);
-//    if (!result) {
-//        return nullptr;
-//    }
-//
-//    for (const auto &entry: *self->m_entries) {
-//#if defined(_MSC_VER)
-//        if (PathMatchSpecA(entry.name.c_str(), pattern)) {
-//#else
-//        if (fnmatch(pattern, entry.name.c_str(), 0) == 0) {
-//#endif
-//            PyObject *entry_data = get_entry_data(self, entry);
-//            if (!entry_data) {
-//                Py_DECREF(result);
-//                return nullptr;
-//            }
-//            PyObject *entry_tuple = PyTuple_New(2);
-//            if (!entry_tuple) {
-//                Py_DECREF(entry_data);
-//                Py_DECREF(result);
-//                return nullptr;
-//            }
-//            PyTuple_SetItem(entry_tuple, 0, PyUnicode_FromString(entry.name.c_str()));
-//            PyTuple_SetItem(entry_tuple, 1, entry_data);
-//            if (PyList_Append(result, entry_tuple) < 0) {
-//                Py_DECREF(entry_tuple);
-//                Py_DECREF(result);
-//                return nullptr;
-//            }
-//            Py_DECREF(entry_tuple);
-//        }
-//    }
-//    return result;
-//}
 
 
 PyObject *VPKFile_glob(VPKFile *self, PyObject *const *args, Py_ssize_t nargs) {

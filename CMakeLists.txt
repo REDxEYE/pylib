@@ -47,7 +47,8 @@ target_link_libraries(pylib PRIVATE Python3::SABIModule libzstd lz4_static mesho
 if(WIN32)
     target_link_libraries(pylib PRIVATE Shlwapi)
 endif()
-
-#target_link_directories(pylib PRIVATE C:/Users/RED/AppData/Local/Programs/Python/Python313/libs)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_link_directories(pylib PRIVATE C:/Users/RED/AppData/Local/Programs/Python/Python313/libs)
+endif ()
 target_include_directories(pylib PRIVATE ./include ext/tinyexr ext/vtflib/src ext/tinyexr ext/tinyexr/deps/miniz)
 target_include_directories(pylib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/ext/vtflib/src")
