@@ -1,6 +1,8 @@
 #include "classes/vpk_class.h"
 #include "classes/vpk_glob_iterator.h"
 #include <format>
+#include <functional>
+#include <algorithm>
 
 PyObject *VPKFile_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
     VPKFile *self;
@@ -38,6 +40,13 @@ std::string read_zero_terminated_string(std::ifstream &stream) {
         buffer[i] = c;
     }
     return {buffer, i};
+}
+
+std::string to_lower(const std::string &input) {
+    std::string result = input;
+    std::transform(result.begin(), result.end(), result.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return result;
 }
 
 int VPKFile_init(VPKFile *self, PyObject *args, PyObject *kwds) {
@@ -105,7 +114,8 @@ int VPKFile_init(VPKFile *self, PyObject *args, PyObject *kwds) {
                     auto file_name = read_zero_terminated_string(stream);
                     if (file_name.empty())
                         break;
-                    auto entry_name = build_entry_name(directory_name, file_name, type_name);
+                    auto entry_name = to_lower(build_entry_name(directory_name, file_name, type_name));
+
                     self->m_names->emplace(entry_name);
                     struct {
                         uint32_t crc;
@@ -167,8 +177,10 @@ PyObject *VPKFile_find_file(VPKFile *self, PyObject *const *args, Py_ssize_t nar
         return nullptr;
     }
 
+    std::string lower_name = to_lower(name);
+
     for (const auto &entry: *self->m_entries) {
-        if (entry.name == name) {
+        if (entry.name == lower_name) {
             return get_entry_data(self, entry);
         }
     }

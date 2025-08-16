@@ -351,42 +351,6 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
     Py_RETURN_NONE;
 }
 
-PyObject *VTF_width(VTFObject *self, PyObject *const *a, Py_ssize_t n) {
-    (void) a;
-    (void) n;
-    return PyLong_FromUnsignedLong(self->file->GetWidth());
-}
-
-PyObject *VTF_height(VTFObject *self, PyObject *const *a, Py_ssize_t n) {
-    (void) a;
-    (void) n;
-    return PyLong_FromUnsignedLong(self->file->GetHeight());
-}
-
-PyObject *VTF_format(VTFObject *self, PyObject *const *a, Py_ssize_t n) {
-    (void) a;
-    (void) n;
-    return PyLong_FromUnsignedLong(self->file->GetFormat());
-}
-
-PyObject *VTF_frame_count(VTFObject *self, PyObject *const *a, Py_ssize_t n) {
-    (void) a;
-    (void) n;
-    return PyLong_FromUnsignedLong(self->file->GetFrameCount());
-}
-
-PyObject *VTF_face_count(VTFObject *self, PyObject *const *a, Py_ssize_t n) {
-    (void) a;
-    (void) n;
-    return PyLong_FromUnsignedLong(self->file->GetFaceCount());
-}
-
-PyObject *VTF_mipmap_count(VTFObject *self, PyObject *const *a, Py_ssize_t n) {
-    (void) a;
-    (void) n;
-    return PyLong_FromUnsignedLong(self->file->GetMipmapCount());
-}
-
 PyObject *VTF_set_reflectivity(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
     if (nargs != 3) {
         PyErr_SetString(PyExc_TypeError, "set_reflectivity(x:float,y:float,z:float)");
@@ -407,22 +371,6 @@ PyObject *VTF_compute_reflectivity(VTFObject *self, PyObject *const *a, Py_ssize
         set_vtf_error(error);
         return nullptr;
     }
-    Py_RETURN_NONE;
-}
-
-PyObject *VTF_bump_scale(VTFObject *self, PyObject *const *a, Py_ssize_t n) {
-    (void) a;
-    (void) n;
-    return PyFloat_FromDouble(self->file->GetBumpmapScale());
-}
-
-PyObject *VTF_set_bump_scale(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
-    if (nargs != 1) {
-        PyErr_SetString(PyExc_TypeError, "set_bump_scale(scale: float)");
-        return nullptr;
-    }
-    float s = (float) PyFloat_AsDouble(args[0]);
-    self->file->SetBumpmapScale(s);
     Py_RETURN_NONE;
 }
 
@@ -495,33 +443,87 @@ void VTF_dealloc(VTFObject *self) {
     freefunc(PyType_GetSlot(Py_TYPE(self), Py_tp_free))(self);
 }
 
-PyObject *VTF_create_from_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
-    if (nargs < 2 || nargs > 9) {
-        PyErr_SetString(PyExc_TypeError,
-                        "create(width:int, height:int, frames=1, faces=1, slices=1, format=IMAGE_FORMAT_RGBA8888, thumbnail=True, mipmaps=True)");
+PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs) {
+    static const char *kwlist[] = {
+            "data", "width", "height",
+            "frames", "faces", "slices",
+            "image_format", "filter_mode", "flags",
+            "generate_mipmaps", "generate_thumbnail",
+            "resize_to_pow2", "resolution_limit_x", "resolution_limit_y",
+            nullptr
+    };
+
+    PyObject *data_buf = nullptr;
+    Py_ssize_t data_len = 0;
+
+    Py_ssize_t width = 0, height = 0;
+    Py_ssize_t frames = 1, faces = 1, slices = 1;
+
+    tagVTFImageFormat image_format = IMAGE_FORMAT_RGBA8888;
+    tagVTFMipmapFilter filter_mode = MIPMAP_FILTER_CATROM;
+    tagVTFImageFlag flags = TEXTUREFLAGS_SRGB;
+
+    int generate_mipmaps = 1;
+    int generate_thumbnail = 1;
+    int resize_to_pow2 = 1;
+    Py_ssize_t resolution_limit_x = 4096;
+    Py_ssize_t resolution_limit_y = 4096;
+
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs,
+            "Onn|"
+            "nnn"
+            "kkk"
+            "pp"
+            "nnn",
+            kwlist,
+            &data_buf, &width, &height,
+            &frames, &faces, &slices,
+            &image_format, &filter_mode, &flags,
+            &generate_mipmaps, &generate_thumbnail,
+            &resize_to_pow2, &resolution_limit_x, &resolution_limit_y)) {
         return nullptr;
     }
-    vlByte *data = (vlByte *) PyBytes_AsString(args[0]);
-    Py_ssize_t width = PyLong_AsSsize_t(args[1]);
-    Py_ssize_t height = PyLong_AsSsize_t(args[2]);
-    if (width <= 0 || height <= 0) {
-        PyErr_SetString(PyExc_ValueError, "width and height must be > 0");
+    if (!PyBytes_Check(data_buf)) {
+        PyErr_SetString(PyExc_TypeError, "data must be bytes");
         return nullptr;
     }
-    Py_ssize_t frames = (nargs > 3) ? PyLong_AsSsize_t(args[3]) : 1;
-    Py_ssize_t faces = (nargs > 4) ? PyLong_AsSsize_t(args[4]) : 1;
-    Py_ssize_t slices = (nargs > 5) ? PyLong_AsSsize_t(args[5]) : 1;
-    tagVTFImageFormat fmt = (tagVTFImageFormat) ((nargs > 6) ? PyLong_AsUnsignedLong(args[6])
-                                                             : (vlUInt) IMAGE_FORMAT_RGBA8888);
-    bool thumbnail = nargs <= 7 || (bool) PyObject_IsTrue(args[7]);
-    bool mipmaps = nargs <= 8 || (bool) PyObject_IsTrue(args[8]);
     VTFLib::Diagnostics::CError error;
     SVTFCreateOptions options;
     vlImageCreateDefaultCreateStructure(&options);
-    options.ImageFormat = fmt;
-    options.bThumbnail = thumbnail;
-    options.bMipmaps = mipmaps;
-    if (!self->file->Create(width, height, frames, faces, slices, &data, options, error)) {
+    options.ImageFormat = image_format;
+    options.bThumbnail = generate_thumbnail;
+    options.bMipmaps = generate_mipmaps;
+    switch (resize_to_pow2) {
+        case 0:
+            options.bResize = false;
+            break;
+        case 1:
+            options.bResize = true;
+            options.ResizeMethod = RESIZE_BIGGEST_POWER2;
+            break;
+        case 2:
+            options.bResize = true;
+            options.ResizeMethod = RESIZE_SMALLEST_POWER2;
+            break;
+        case 3:
+            options.bResize = true;
+            options.ResizeMethod = RESIZE_NEAREST_POWER2;
+            break;
+    }
+    if (resolution_limit_x != width || resolution_limit_y != height) {
+        options.bResizeClamp = true;
+        options.uiResizeClampWidth = resolution_limit_x;
+        options.uiResizeClampHeight = resolution_limit_y;
+    }
+
+    options.MipmapFilter = filter_mode;
+    char *data = PyBytes_AsString(data_buf);
+    if (!self->file->Create(width, height, frames, faces, slices, (vlByte **) &data, options, error)) {
+        set_vtf_error(error);
+        return nullptr;
+    }
+    if(!vlImageComputeReflectivity(self->file, &error)){
         set_vtf_error(error);
         return nullptr;
     }

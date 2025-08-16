@@ -42,11 +42,46 @@ PyDoc_STRVAR(VTF_create_doc,
              "\n"
              "Create a new VTF image with the given dimensions, layout and format.");
 
-PyDoc_STRVAR(VTF_create_from_data_doc,
-            "create_from_data($self, /, data, width, height, frames=1, faces=1, slices=1, format=ImageFormat.RGBA8888, thumbnail=True, mipmaps=True)\n"
-             "--\n"
-             "\n"
-             "Create a new VTF image with the given data, dimensions, layout and format.");
+PyDoc_STRVAR(
+        VTF_create_from_data_doc,
+        "create_from_data($self, data, width, height, frames=1, faces=1, slices=1, "
+        "image_format=ImageFormat.RGBA8888, filter_mode=MipFilter.CATROM, "
+        "flags=TextureFlags.SRGB, generate_mipmaps=True, generate_thumbnail=True, "
+        "resize_to_pow2=1, resolution_limit_x=4096, resolution_limit_y=4096)\n"
+        "--\n"
+        "\n"
+        "Create a new VTF image from raw bytes.\n"
+        "\n"
+        "Parameters\n"
+        "----------\n"
+        "data : bytes\n"
+        "    Raw pixel data (layout must match the chosen image_format).\n"
+        "width, height : int\n"
+        "    Texture dimensions (> 0).\n"
+        "frames, faces, slices : int, optional\n"
+        "    Animation frames, cubemap faces, and depth slices; defaults to 1.\n"
+        "image_format : ImageFormat or int, optional\n"
+        "    Target VTF image format; default RGBA8888.\n"
+        "filter_mode : MipmapFilter or int, optional\n"
+        "    Filter used when generating mipmaps; default CATROM.\n"
+        "flags : TextureFlags or int, optional\n"
+        "    VTF flags to apply; default SRGB.\n"
+        "generate_mipmaps : bool, optional\n"
+        "    Whether to generate mipmaps; default True.\n"
+        "generate_thumbnail : bool, optional\n"
+        "    Whether to embed a thumbnail; default True.\n"
+        "resize_to_pow2 : int, optional\n"
+        "    Power-of-two resize mode: 0=disabled, 1=biggest, 2=smallest, 3=nearest. Default 1.\n"
+        "resolution_limit_x, resolution_limit_y : int, optional\n"
+        "    Clamp final size; if either differs from (width, height), clamping is enabled.\n"
+        "\n"
+        "Raises\n"
+        "------\n"
+        "ValueError\n"
+        "    If width/height/frames/faces/slices are not positive.\n"
+        "VTFLibError\n"
+        "    If the underlying VTFLib call fails.\n"
+);
 
 PyDoc_STRVAR(VTF_set_data_doc,
              "set_data($self, /, frame, face, slice, mip, data)\n"
@@ -144,7 +179,7 @@ PyObject *VTF_to_bytes(VTFObject *self, PyObject *const *args, Py_ssize_t nargs)
 
 PyObject *VTF_create(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
 
-PyObject *VTF_create_from_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
+PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs);
 
 PyObject *VTF_set_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
 
@@ -166,7 +201,7 @@ static PyMethodDef vtf_class_methods[] = {
         {"save",                 CPF(VTF_save),                 METH_FASTCALL, VTF_save_doc},
         {"to_bytes",             CPF(VTF_to_bytes),             METH_FASTCALL, VTF_to_bytes_doc},
         {"create",               CPF(VTF_create),               METH_FASTCALL, VTF_create_doc},
-        {"create_from_data",     CPF(VTF_create_from_data),     METH_FASTCALL, VTF_create_from_data_doc},
+        {"create_from_data",     CPF(VTF_create_from_data),     METH_VARARGS|METH_KEYWORDS, VTF_create_from_data_doc},
         {"set_data",             CPF(VTF_set_data),             METH_FASTCALL, VTF_set_data_doc},
         {"get_data",             CPF(VTF_get_data),             METH_FASTCALL, VTF_get_data_doc},
         {"set_flag",             CPF(VTF_set_flag),             METH_FASTCALL, VTF_set_flag_doc},

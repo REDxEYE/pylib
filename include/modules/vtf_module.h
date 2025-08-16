@@ -108,7 +108,8 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
             {"ATI_DST24",         IMAGE_FORMAT_ATI_DST24},
             {"NV_NULL",           IMAGE_FORMAT_NV_NULL},
             {"ATI2N",             IMAGE_FORMAT_ATI2N},
-            {"ATI1N",             IMAGE_FORMAT_ATI1N}};
+            {"ATI1N",             IMAGE_FORMAT_ATI1N}
+    };
     PyObject *my_enum;
     my_enum = create_int_enum("ImageFormat", image_format_members);
     if (!my_enum) return nullptr;
@@ -132,7 +133,8 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
             {"HANNING",   MIPMAP_FILTER_HANNING},
             {"HAMMING",   MIPMAP_FILTER_HAMMING},
             {"BLACKMAN",  MIPMAP_FILTER_BLACKMAN},
-            {"KAISER",    MIPMAP_FILTER_KAISER}};
+            {"KAISER",    MIPMAP_FILTER_KAISER}
+    };
 
     my_enum = create_int_enum("MipFilter", mip_filter_members);
     if (PyModule_AddObject(module, "MipFilter", my_enum) < 0) {
