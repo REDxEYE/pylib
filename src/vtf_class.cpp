@@ -475,7 +475,7 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
             "kkk"
             "pp"
             "nnn",
-            (char* const*)kwlist,
+            (const char* const*)kwlist,
             &data_buf, &width, &height,
             &frames, &faces, &slices,
             &image_format, &filter_mode, &flags,
