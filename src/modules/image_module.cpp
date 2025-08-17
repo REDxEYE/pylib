@@ -118,8 +118,8 @@ PyObject *py_save_png(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
                         "takes exactly 5 arguments");
         return nullptr;
     }
-
-    if (!PyBytes_Check(args[0])) {
+    PyROBytesView data_view(args[0]);
+    if (!data_view) {
         PyErr_SetString(PyExc_TypeError, "image_data must be bytes");
         return nullptr;
     }
@@ -127,10 +127,6 @@ PyObject *py_save_png(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         PyErr_SetString(PyExc_TypeError, "width, height, channels must be integers");
         return nullptr;
     }
-
-    const char *data = PyBytes_AsString(args[0]);
-    if (!data) return nullptr;
-    const Py_ssize_t data_len = PyBytes_Size(args[0]);
 
     Py_ssize_t w = PyLong_AsSsize_t(args[1]);
     Py_ssize_t h = PyLong_AsSsize_t(args[2]);
@@ -145,16 +141,16 @@ PyObject *py_save_png(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
         PyErr_SetString(PyExc_OverflowError, "width * height * channels overflowed");
         return nullptr;
     }
-    if (data_len != expected) {
+    if (data_view.size() != expected) {
         PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match width*height*channels (%zd)",
-                     data_len, expected);
+                     data_view.size(), expected);
         return nullptr;
     }
 
     FILE *f = open_file_write_unicode((PyObject *) args[4]);
     if (!f) return nullptr;
 
-    int ok = stbi_write_png_to_func(stb_write_to_FILE, f, (int) w, (int) h, (int) ch, data, (int) row_stride);
+    int ok = stbi_write_png_to_func(stb_write_to_FILE, f, (int) w, (int) h, (int) ch, data_view.data(),(int) row_stride);
     int ferr = fflush(f);
     fclose(f);
 
@@ -539,7 +535,8 @@ PyObject *py_decode_texture(PyObject *self, PyObject *const *args, Py_ssize_t na
                         "takes exactly 4 arguments");
         return nullptr;
     }
-    if (!PyBytes_Check(args[0])) {
+    PyROBytesView data_view(args[0]);
+    if (!data_view) {
         PyErr_SetString(PyExc_TypeError, "image_data must be bytes");
         return nullptr;
     }
@@ -552,9 +549,8 @@ PyObject *py_decode_texture(PyObject *self, PyObject *const *args, Py_ssize_t na
         return nullptr;
     }
 
-    const uint8_t *data = (uint8_t *) PyBytes_AsString(args[0]);
-    if (!data) return nullptr;
-    const Py_ssize_t data_len = PyBytes_Size(args[0]);
+    const uint8_t *data = (uint8_t *) data_view.data();
+    const size_t data_len = data_view.size();
 
     Py_ssize_t w = PyLong_AsSsize_t(args[1]);
     Py_ssize_t h = PyLong_AsSsize_t(args[2]);

@@ -28,4 +28,35 @@ inline int mul3_checked_psszt(Py_ssize_t a, Py_ssize_t b, Py_ssize_t c, Py_ssize
 PyObject* create_int_enum(const char* name, const std::span<std::pair<std::string, uint32_t>>& members);
 PyObject *create_int_flags(const char *name, const std::span<std::pair<std::string, uint32_t>> &members);
 
+
+class PyROBytesView {
+public:
+    PyROBytesView() = default;
+
+    explicit PyROBytesView(PyObject* obj);
+
+    PyROBytesView(const PyROBytesView&) = delete;
+    PyROBytesView& operator=(const PyROBytesView&) = delete;
+
+    inline PyROBytesView(PyROBytesView&& other) noexcept;
+
+    PyROBytesView& operator=(PyROBytesView&& other) noexcept;
+
+    ~PyROBytesView();
+
+    inline explicit operator bool() const { return owner_ != nullptr; }
+    inline const char* data() const { return data_; }
+    inline size_t size() const { return size_; }
+    inline PyObject* owner() const { return owner_; }
+
+    void reset();
+
+private:
+    void move_from(PyROBytesView& other);
+
+    PyObject* owner_ = nullptr;
+    const char* data_ = nullptr;
+    size_t size_ = 0;
+};
+
 #endif //PYLIB_UTILS_H

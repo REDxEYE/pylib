@@ -15,21 +15,19 @@ PyObject *py_load_vtf_texture(PyObject *self, PyObject *const *args, Py_ssize_t 
         PyErr_SetString(PyExc_TypeError, "load_vtf_texture(input_data: bytes) takes exactly 1 argument");
         return nullptr;
     }
-    if (!PyBytes_Check(args[0])) {
+    PyROBytesView data(args[0]);
+    if (!data) {
         PyErr_SetString(PyExc_TypeError, "input_data must be bytes");
         return nullptr;
     }
-    const char *buf = PyBytes_AsString(args[0]);
-    const size_t buf_size = PyBytes_Size(args[0]);
-
-    if (!buf || buf_size == 0) {
+    if (data.size() == 0) {
         PyErr_SetString(PyExc_ValueError, "input_data must not be empty");
         return nullptr;
     }
     VTFLib::Diagnostics::CError error;
     auto vtf_file = VTFLib::CVTFFile();
 
-    if (!vtf_file.Load(buf, buf_size, error, false)) {
+    if (!vtf_file.Load(data.data(), data.size(), error, false)) {
         set_vtf_error(error);
         return nullptr;
     }

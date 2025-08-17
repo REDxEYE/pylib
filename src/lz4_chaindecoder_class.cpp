@@ -54,7 +54,8 @@ PyObject* LZ4ChainDecoder_decompress(LZ4ChainDecoderObject* self, PyObject* cons
         PyErr_SetString(PyExc_TypeError, "decompress(src, block_size) takes exactly 2 argument");
         return nullptr;
     }
-    if (!PyBytes_Check(args[0])) {
+    PyROBytesView data_view(args[0]);
+    if (!data_view) {
         PyErr_SetString(PyExc_TypeError, "src must be bytes");
         return nullptr;
     }
@@ -63,14 +64,12 @@ PyObject* LZ4ChainDecoder_decompress(LZ4ChainDecoderObject* self, PyObject* cons
         return nullptr;
     }
 
-    PyObject *src = args[0];
     uint32_t decompressed_size = PyLong_AsUnsignedLong(args[1]);
 
     PyObject *dst = PyBytes_FromStringAndSize(nullptr, decompressed_size);
-    auto *src_buf = (uint8_t *) PyBytes_AsString(src);
     auto *dst_buf = (uint8_t *) PyBytes_AsString(dst);
 
-    if (!decode_and_drain(self, src_buf, PyBytes_Size(src), dst_buf, decompressed_size)) {
+    if (!decode_and_drain(self, reinterpret_cast<const uint8_t *>(data_view.data()), data_view.size(), dst_buf, decompressed_size)) {
         return nullptr;
     }
     return dst;

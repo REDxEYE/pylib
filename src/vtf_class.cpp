@@ -53,17 +53,16 @@ PyObject *VTF_load_bytes(VTFObject *self, PyObject *const *args, Py_ssize_t narg
         PyErr_SetString(PyExc_TypeError, "load_bytes(data: bytes, header_only: bool = False)");
         return nullptr;
     }
-    if (!PyBytes_Check(args[0])) {
+    PyROBytesView data_view(args[0]);
+    if (!data_view) {
         PyErr_SetString(PyExc_TypeError, "data must be bytes");
         return nullptr;
     }
     int header_only = 0;
     if (nargs == 2) header_only = PyObject_IsTrue(args[1]);
 
-    const void *buf = PyBytes_AsString(args[0]);
-    vlSize sz = (vlSize) PyBytes_Size(args[0]);
     VTFLib::Diagnostics::CError error;
-    if (!self->file->Load(buf, sz, error, header_only ? vlTrue : vlFalse)) {
+    if (!self->file->Load(data_view.data(), data_view.size(), error, header_only ? vlTrue : vlFalse)) {
         set_vtf_error(error);
         return nullptr;
     }

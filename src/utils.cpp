@@ -109,3 +109,60 @@ PyObject *create_int_flags(const char *name, const std::span<std::pair<std::stri
 
     return enum_type;  // new reference
 }
+
+PyROBytesView::PyROBytesView(PyObject *obj) {
+    if (!obj) return;
+    if (PyBytes_Check(obj)) {
+        owner_ = obj;
+        Py_INCREF(owner_);
+    } else {
+        owner_ = PyBytes_FromObject(obj);
+        if (!owner_) return;
+    }
+    char* p = PyBytes_AsString(owner_);
+    if (!p) {
+        Py_CLEAR(owner_);
+        return;
+    }
+    Py_ssize_t n = PyBytes_Size(owner_);
+    if (n < 0) {
+        Py_CLEAR(owner_);
+        return;
+    }
+    data_ = p;
+    size_ = static_cast<size_t>(n);
+}
+
+void PyROBytesView::move_from(PyROBytesView &other) {
+    owner_ = other.owner_;
+    data_ = other.data_;
+    size_ = other.size_;
+    other.owner_ = nullptr;
+    other.data_ = nullptr;
+    other.size_ = 0;
+}
+
+void PyROBytesView::reset() {
+    if (owner_) {
+        Py_DECREF(owner_);
+        owner_ = nullptr;
+        data_ = nullptr;
+        size_ = 0;
+    }
+}
+
+PyROBytesView::~PyROBytesView() {
+    reset();
+}
+
+PyROBytesView &PyROBytesView::operator=(PyROBytesView &&other) noexcept {
+    if (this != &other) {
+        reset();
+        move_from(other);
+    }
+    return *this;
+}
+
+PyROBytesView::PyROBytesView(PyROBytesView &&other) noexcept {
+    move_from(other);
+}
