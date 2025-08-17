@@ -453,7 +453,6 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     };
 
     PyObject *data_buf = nullptr;
-    Py_ssize_t data_len = 0;
 
     Py_ssize_t width = 0, height = 0;
     Py_ssize_t frames = 1, faces = 1, slices = 1;
@@ -475,7 +474,7 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
             "kkk"
             "pp"
             "nnn",
-            (const char* const*)kwlist,
+            const_cast<char **>(kwlist),
             &data_buf, &width, &height,
             &frames, &faces, &slices,
             &image_format, &filter_mode, &flags,
