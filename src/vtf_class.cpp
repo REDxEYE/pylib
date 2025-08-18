@@ -527,3 +527,13 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     }
     Py_RETURN_NONE;
 }
+
+PyObject *vtf_repr(VTFObject *self) {
+    return PyUnicode_FromFormat("<VTFFile: %ux%u, format=%u, frames=%u, faces=%u, slices=%u>",
+                                self->file->GetWidth(),
+                                self->file->GetHeight(),
+                                self->file->GetFormat(),
+                                self->file->GetFrameCount(),
+                                self->file->GetFaceCount(),
+                                self->file->GetDepth());
+}

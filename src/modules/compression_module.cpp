@@ -1,7 +1,5 @@
-//
-// Created by RED on 11.08.2025.
-//
 #include "modules/compression_module.h"
+#include <vector>1
 #include "utils/utils.h"
 
 #include "zstd.h"
@@ -18,19 +16,15 @@ PyObject *py_zstd_decompress(PyObject *self, PyObject *const *args, Py_ssize_t n
     }
 
     Py_ssize_t decompressed_size = PyLong_AsLongLong(args[1]);
-    PyObject *decompressed_data = PyBytes_FromStringAndSize(nullptr, decompressed_size);
-    size_t bytes_written = ZSTD_decompress(PyBytes_AsString(decompressed_data), decompressed_size, data_view.data(),
+    std::vector<uint8_t> decompressed_buffer(decompressed_size);
+    size_t bytes_written = ZSTD_decompress(decompressed_buffer.data(), decompressed_size, data_view.data(),
                                            data_view.size());
     if (ZSTD_isError(bytes_written)) {
-        Py_DECREF(decompressed_data);
         return PyErr_Format(PyExc_ValueError, "Decompression failed: %s", ZSTD_getErrorName(bytes_written));
     }
-    if (bytes_written != decompressed_size) {
-        Py_DECREF(decompressed_data);
-        return PyErr_Format(PyExc_ValueError, "Decompression size mismatch: expected %zd, got %zu", decompressed_size,
-                            bytes_written);
-    }
-    return decompressed_data;
+
+    PyObject *res = PyBytes_FromStringAndSize(reinterpret_cast<const char *>(decompressed_buffer.data()), bytes_written);
+    return res;
 }
 
 PyObject *py_zstd_compress(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {

@@ -60,10 +60,13 @@ int VPKFile_init(VPKFile *self, PyObject *args, PyObject *kwds);
 
 void VPKFile_dealloc(VPKFile *self);
 
+PyObject *VPKFile_repr(VPKFile *self);
+
 static PyType_Slot VPKFile_class_slots[] = {
         {Py_tp_new,     (void *) VPKFile_new},
         {Py_tp_init,    (void *) VPKFile_init},
         {Py_tp_dealloc, (void *) VPKFile_dealloc},
+        {Py_tp_repr, (void *) VPKFile_repr},
         {Py_tp_methods, (void *) VPKFile_class_methods},
         {0,             nullptr}
 };

@@ -279,3 +279,7 @@ PyObject *VPKFile_check(VPKFile *self, PyObject *const *args, Py_ssize_t nargs) 
     }
     Py_RETURN_FALSE;
 }
+
+PyObject *VPKFile_repr(VPKFile *self) {
+    return PyUnicode_FromFormat("VPKFile(path=%s, entries=%zu)", self->m_path.c_str(), self->m_entries->size());
+}

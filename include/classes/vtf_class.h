@@ -216,11 +216,14 @@ PyObject *VTF_new(PyTypeObject *type, PyObject *args, PyObject *kwargs);
 
 void VTF_dealloc(VTFObject *self);
 
+PyObject *vtf_repr(VTFObject *self);
+
 static PyType_Slot vtf_class_slots[] = {
         {Py_tp_new,     (void *) VTF_new},
         {Py_tp_dealloc, (void *) VTF_dealloc},
         {Py_tp_methods, (void *) vtf_class_methods},
         {Py_tp_getset,  (void *) vtf_class_getset},
+        {Py_tp_repr, (void *) vtf_repr},
         {0,             0}
 };
 
