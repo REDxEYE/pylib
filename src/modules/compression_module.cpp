@@ -1,5 +1,5 @@
 #include "modules/compression_module.h"
-#include <vector>1
+#include <vector>
 #include "utils/utils.h"
 
 #include "zstd.h"

@@ -7,7 +7,7 @@
 
 using namespace VTFLib;
 
-inline void set_vtf_error(VTFLib::Diagnostics::CError &error) {
+void set_vtf_error(VTFLib::Diagnostics::CError &error) {
     const vlChar *msg = error.Get();
     if (msg && *msg) {
         PyErr_SetString(PyExc_RuntimeError, msg);
