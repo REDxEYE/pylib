@@ -4,6 +4,7 @@
 #include <Python.h>
 #include "utils/utils.h"
 #include "classes/lz4_chaindecoder_class.h"
+#include "classes/lz4_chainencoder_class.h"
 
 PyObject *py_zstd_decompress(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
@@ -96,14 +97,25 @@ static PyObject *CompressionModule_Init(PyObject *parent_module) {
         return nullptr;
     }
 
-    PyObject* t = PyType_FromSpec(&LZ4_spec);
-    if (!t){
+    PyObject* decoder = PyType_FromSpec(&LZ4_spec);
+    if (!decoder){
         Py_DECREF(module);
         return nullptr;
     };
-    if (PyModule_AddObject(module, "LZ4ChainDecoder", t) < 0) {
+    if (PyModule_AddObject(module, "LZ4ChainDecoder", decoder) < 0) {
         Py_DECREF(module);
-        Py_DECREF(t);
+        Py_DECREF(decoder);
+        return nullptr;
+    }
+    PyObject* encoder = PyType_FromSpec(&LZ4ChainEncoder_spec);
+    if (!encoder){
+        Py_DECREF(module);
+        return nullptr;
+    };
+
+    if (PyModule_AddObject(module, "LZ4ChainEncoder", encoder) < 0) {
+        Py_DECREF(module);
+        Py_DECREF(encoder);
         return nullptr;
     }
 

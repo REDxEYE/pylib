@@ -55,6 +55,7 @@ Python3_add_library(pylib MODULE USE_SABI 3.10 WITH_SOABI
         src/vpk_glob_iterator.cpp
         src/vtf_class.cpp
         src/lz4_chaindecoder_class.cpp
+        src/lz4_chainencoder_class.cpp
         src/vpk_class.cpp
         src/etc.cpp
 )

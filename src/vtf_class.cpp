@@ -446,7 +446,7 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     static const char *kwlist[] = {
             "data", "width", "height",
             "frames", "faces", "slices",
-            "image_format", "filter_mode", "flags",
+            "src_image_format", "dst_image_format", "filter_mode", "flags",
             "generate_mipmaps", "generate_thumbnail",
             "resize_to_pow2", "resolution_limit_x", "resolution_limit_y",
             nullptr
@@ -457,7 +457,8 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     Py_ssize_t width = 0, height = 0;
     Py_ssize_t frames = 1, faces = 1, slices = 1;
 
-    tagVTFImageFormat image_format = IMAGE_FORMAT_RGBA8888;
+    tagVTFImageFormat src_image_format = IMAGE_FORMAT_RGBA8888;
+    tagVTFImageFormat dst_image_format = IMAGE_FORMAT_RGBA8888;
     tagVTFMipmapFilter filter_mode = MIPMAP_FILTER_CATROM;
     tagVTFImageFlag flags = TEXTUREFLAGS_SRGB;
 
@@ -470,14 +471,14 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     if (!PyArg_ParseTupleAndKeywords(
             args, kwargs,
             "Onn|"
-            "nnn"
+            "nnnn"
             "kkk"
             "pp"
             "nnn",
             const_cast<char **>(kwlist),
             &data_buf, &width, &height,
             &frames, &faces, &slices,
-            &image_format, &filter_mode, &flags,
+            &src_image_format, &dst_image_format, &filter_mode, &flags,
             &generate_mipmaps, &generate_thumbnail,
             &resize_to_pow2, &resolution_limit_x, &resolution_limit_y)) {
         return nullptr;
@@ -489,7 +490,7 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     VTFLib::Diagnostics::CError error;
     SVTFCreateOptions options;
     vlImageCreateDefaultCreateStructure(&options);
-    options.ImageFormat = image_format;
+    options.ImageFormat = dst_image_format;
     options.bThumbnail = generate_thumbnail;
     options.bMipmaps = generate_mipmaps;
     switch (resize_to_pow2) {
@@ -516,12 +517,19 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     }
 
     options.MipmapFilter = filter_mode;
-    char *data = PyBytes_AsString(data_buf);
-    if (!self->file->Create(width, height, frames, faces, slices, (vlByte **) &data, options, error)) {
+    auto data = PyROBytesView(data_buf);
+    std::vector<uint8_t> dst_data(VTFLib::CVTFFile::ComputeImageSize(width, height, 1, dst_image_format));
+    if (!VTFLib::CVTFFile::Convert((vlByte *) data.data(), (vlByte *) dst_data.data(), width, height,
+                                   src_image_format, dst_image_format, error)) {
         set_vtf_error(error);
         return nullptr;
     }
-    if(!vlImageComputeReflectivity(self->file, &error)){
+    auto dst_raw_data = dst_data.data();
+    if (!self->file->Create(width, height, frames, faces, slices, (vlByte **) &dst_raw_data, options, error)) {
+        set_vtf_error(error);
+        return nullptr;
+    }
+    if (!vlImageComputeReflectivity(self->file, &error)) {
         set_vtf_error(error);
         return nullptr;
     }
