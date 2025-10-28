@@ -1,7 +1,21 @@
 cmake_minimum_required(VERSION 3.26...3.27)
 project(pylib C CXX)
-
 set(CMAKE_CXX_STANDARD 20)
+
+include(CheckCXXCompilerFlag)
+
+function(target_add_flags_if_supported tgt scope)
+    foreach(flag IN LISTS ARGN)
+        # Generate a unique variable per-flag/compiler/arch to cache the test
+        string(MD5 key "${flag}-${CMAKE_CXX_COMPILER_ID}-${CMAKE_SYSTEM_PROCESSOR}")
+        set(var "HAVE_${key}")
+        check_cxx_compiler_flag("${flag}" ${var})
+        if(${var})
+            target_compile_options(${tgt} ${scope} "${flag}")
+        endif()
+    endforeach()
+endfunction()
+
 
 find_package(Python3 REQUIRED COMPONENTS Development.SABIModule)
 add_subdirectory(ext/zstd/build/cmake)
@@ -33,15 +47,38 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 else ()
     if (MSVC)
-        target_compile_options(stbiw_obj PRIVATE
-                /O2 /GL /arch:AVX2 /Oi /Ot /fp:precise /GS- /Gy /Gw
+        # Always-safe opt flags on MSVC
+        target_add_flags_if_supported(stbiw_obj PRIVATE /O2 /GL /Oi /Ot /fp:precise /GS- /Gy /Gw)
+
+        # Only try AVX2 on x86/x64 MSVC toolsets
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x86|i.86")
+            target_add_flags_if_supported(stbiw_obj PRIVATE /arch:AVX2)
+        endif()
+
+    else()
+        # General opts for Clang/GCC
+        target_add_flags_if_supported(stbiw_obj PRIVATE
+                -O3 -fomit-frame-pointer -funroll-loops -fstrict-aliasing
         )
-    else ()
-        target_compile_options(stbiw_obj PRIVATE
-                -O3 -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -mpopcnt
-                -fomit-frame-pointer -funroll-loops -fstrict-aliasing -flto
-        )
-    endif ()
+
+        # LTO differs by platform/compiler; try thin-LTO on Apple Clang
+        if (APPLE)
+            target_add_flags_if_supported(stbiw_obj PRIVATE -flto=thin)
+        else()
+            target_add_flags_if_supported(stbiw_obj PRIVATE -flto)
+        endif()
+
+        # CPU-specific flags by architecture
+        if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|x86|i.86")
+            target_add_flags_if_supported(stbiw_obj PRIVATE
+                    -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -mpopcnt
+            )
+        elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+            # Apple/ARM: NEON is default; avoid x86 flags. Optional: tune for host CPU.
+            target_add_flags_if_supported(stbiw_obj PRIVATE -mcpu=native)
+            # (You usually don't need -mfpu=neon on Apple/ARM; it’s implied.)
+        endif()
+    endif()
 endif ()
 
 
