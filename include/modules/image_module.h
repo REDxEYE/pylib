@@ -75,10 +75,13 @@ static PyObject *ImageModule_Init(PyObject *parent_module) {
         return nullptr;
     }
 
+
     if (PyModule_AddObject(parent_module, "image", module) < 0) {
         Py_DECREF(module);
         return nullptr;
     }
+
+    Py_INCREF(module);
 
     PyObject *modules = PyImport_GetModuleDict();
     if (PyDict_SetItemString(modules, "pylib.image", module) < 0) {
@@ -88,6 +91,7 @@ static PyObject *ImageModule_Init(PyObject *parent_module) {
     // Set __path__ attribute for the submodule
     PyObject *path_list = Py_BuildValue("[s]", "pylib/image");
     if (path_list) {
+        Py_INCREF(path_list);
         if (PyModule_AddObject(module, "__path__", path_list) < 0) {
             Py_DECREF(path_list);
             Py_DECREF(module);

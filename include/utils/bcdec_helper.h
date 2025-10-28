@@ -51,13 +51,13 @@ bool convertBC6(const uint8_t *src, uint8_t *output, uint32_t width, uint32_t he
             }
             uint8_t *dst = dstRow + x * pixelSize;
             if (y + 4 <= height && x + 4 <= width) {
-                decoder((void *) src, dst, (int) stride / 4);
+                decoder((void *) src, dst, (int) stride / 2);
             } else {
                 uint32_t partialWidth = std::min(width - x, (uint32_t) 4);
                 uint32_t partialHeight = std::min(height - y, (uint32_t) 4);
                 static uint8_t tmpBuffer[4 * 4 * pixelSize];
                 // BCDEC BC6 expects pitch in component count, not in byte count
-                decoder((void *) src, tmpBuffer, (int) stride / 4);
+                decoder((void *) src, tmpBuffer, (int) stride / 2);
 
                 for (int y = 0; y < partialHeight; y++) {
                     memcpy(dst + y * stride, &tmpBuffer[y * 4], partialWidth * 4);

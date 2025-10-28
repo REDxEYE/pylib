@@ -21,8 +21,8 @@ void VPKFile_dealloc(VPKFile *self) {
 #pragma pack(push, 1)
 struct VampirePakFooter {
     unsigned int file_count;
-    unsigned int directory_offset;    // Absolute from the start of the VPK
-    unsigned char version;            // Always 0
+    unsigned int directory_offset; // Absolute from the start of the VPK
+    unsigned char version; // Always 0
 };
 
 
@@ -121,7 +121,6 @@ int VPKFile_init(VPKFile *self, PyObject *args, PyObject *kwds) {
                         uint32_t crc;
                         uint16_t preload_size, archive_id;
                         uint32_t offset, size;
-
                     } entry{};
                     stream.read((char *) &entry, sizeof(entry));
                     uint16_t terminator;
@@ -153,10 +152,11 @@ std::string build_entry_name(const std::string &directory, const std::string &na
         return name + "." + extension;
     }
     if (extension.at(0) == ' ') {
-        return directory + "/" + extension;
+        return directory + "/" + name;
     }
     if (name.at(0) == ' ') {
-        PyErr_SetString(PyExc_RuntimeError, "Invalid entry name: name starts with space");
+        auto tmp_name = name.substr(1);
+        return directory + "/" + tmp_name + "." + extension;
     }
     return directory + "/" + name + "." + extension;
 }
@@ -197,30 +197,28 @@ PyObject *get_entry_data(VPKFile *self, const VPKEntry &entry) {
         if (!entry.preload.empty()) {
             memcpy(PyBytes_AsString(data), entry.preload.data(), entry.preload.size());
         }
-        std::span<uint8_t> tmp = std::span((uint8_t *) PyBytes_AsString(data), entry.size + entry.preload.size());
         self->m_stream->read(PyBytes_AsString(data) + entry.preload.size(), entry.size);
         return data;
-    } else {
-        std::string chunk_path = std::format("{}{:03}.vpk", self->m_chunked_base, entry.archive_id);
-        std::ifstream chunk_stream(chunk_path, std::ios::binary | std::ios::in);
-        if (!chunk_stream.is_open()) {
-            PyErr_SetString(PyExc_RuntimeError, "Failed to open chunk file");
-            return nullptr;
-        }
-        chunk_stream.seekg((uint32_t) entry.offset);
-        PyObject *data = PyBytes_FromStringAndSize(nullptr, (Py_ssize_t) (entry.size + entry.preload.size()));
-        if (!data) {
-            chunk_stream.close();
-            return nullptr;
-        }
-        if (!entry.preload.empty()) {
-            memcpy(PyBytes_AsString(data), entry.preload.data(), entry.preload.size());
-        }
-        std::span<uint8_t> tmp = std::span((uint8_t *) PyBytes_AsString(data), entry.size + entry.preload.size());
-        chunk_stream.read(PyBytes_AsString(data) + entry.preload.size(), entry.size);
-        chunk_stream.close();
-        return data;
     }
+
+    std::string chunk_path = std::format("{}{:03}.vpk", self->m_chunked_base, entry.archive_id);
+    std::ifstream chunk_stream(chunk_path, std::ios::binary | std::ios::in);
+    if (!chunk_stream.is_open()) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to open chunk file");
+        return nullptr;
+    }
+    chunk_stream.seekg(entry.offset);
+    PyObject *data = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(entry.size + entry.preload.size()));
+    if (!data) {
+        chunk_stream.close();
+        return nullptr;
+    }
+    if (!entry.preload.empty()) {
+        memcpy(PyBytes_AsString(data), entry.preload.data(), entry.preload.size());
+    }
+    chunk_stream.read(PyBytes_AsString(data) + entry.preload.size(), entry.size);
+    chunk_stream.close();
+    return data;
 }
 
 
@@ -244,7 +242,7 @@ PyObject *VPKFile_glob(VPKFile *self, PyObject *const *args, Py_ssize_t nargs) {
     if (EnsureGlobIterType() < 0)
         return nullptr;
 
-// allocate iterator instance
+    // allocate iterator instance
     VPKGlobIter *it = (VPKGlobIter *) PyType_GenericNew((PyTypeObject *) GlobIter_TypeObj, nullptr, nullptr);
     if (!it) return nullptr;
 

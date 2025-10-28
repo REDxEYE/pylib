@@ -55,6 +55,7 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
         Py_DECREF(module);
         return nullptr;
     }
+    Py_INCREF(module);
 
     PyObject *modules = PyImport_GetModuleDict();
     if (PyDict_SetItemString(modules, "pylib.vtf", module) < 0) {
@@ -204,6 +205,7 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
     // Set __path__ attribute for the submodule
     PyObject *path_list = Py_BuildValue("[s]", "pylib/vtf");
     if (path_list) {
+        Py_INCREF(path_list);
         if (PyModule_AddObject(module, "__path__", path_list) < 0) {
             Py_DECREF(path_list);
             Py_DECREF(module);

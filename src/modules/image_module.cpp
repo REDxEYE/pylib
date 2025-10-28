@@ -150,7 +150,8 @@ PyObject *py_save_png(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
     FILE *f = open_file_write_unicode((PyObject *) args[4]);
     if (!f) return nullptr;
 
-    int ok = stbi_write_png_to_func(stb_write_to_FILE, f, (int) w, (int) h, (int) ch, data_view.data(),(int) row_stride);
+    int ok = stbi_write_png_to_func(stb_write_to_FILE, f, (int) w, (int) h, (int) ch, data_view.data(),
+                                    (int) row_stride);
     int ferr = fflush(f);
     fclose(f);
 
@@ -607,8 +608,8 @@ PyObject *py_decode_texture(PyObject *self, PyObject *const *args, Py_ssize_t na
                          data_len, w, h);
             return nullptr;
         }
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 4));
-        convertBC6<4>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc6h_half_unsigned);
+        result = PyBytes_FromStringAndSize(nullptr, (w * h * 2 * 3));
+        convertBC6<6>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc6h_half_unsigned);
     } else if (format == "BC7") {
         if (data_len < BCDEC_BC7_COMPRESSED_SIZE(w, h)) {
             PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match BC7 compressed size for %zd x %zd",
