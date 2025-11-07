@@ -96,6 +96,7 @@ Python3_add_library(pylib MODULE USE_SABI 3.10 WITH_SOABI
         src/vpk_class.cpp
         src/etc.cpp
 )
+target_compile_definitions(pylib PRIVATE BCDEC_BC4BC5_PRECISE)
 set_target_properties(pylib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_link_libraries(pylib PRIVATE Python3::SABIModule libzstd lz4_static meshoptimizer VTFLib20 stbiw_obj)
 if (WIN32)

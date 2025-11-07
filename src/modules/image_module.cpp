@@ -593,7 +593,10 @@ PyObject *py_decode_texture(PyObject *self, PyObject *const *args, Py_ssize_t na
             return nullptr;
         }
         result = PyBytes_FromStringAndSize(nullptr, (w * h));
-        convertBCn<BCDEC_BC4_BLOCK_SIZE, 4, 1>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc4);
+        convertBCn<BCDEC_BC4_BLOCK_SIZE, 4, 1>(data, (uint8_t *) PyBytes_AsString(result), w, h,
+                                               [](void *src, void *dst, int32_t pitch) {
+                                                   bcdec_bc4(src, dst, pitch, false);
+                                               });
     } else if (format == "BC5" || format == "ATI2N") {
         if (data_len < BCDEC_BC5_COMPRESSED_SIZE(w, h)) {
             PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match BC5 compressed size for %zd x %zd",
@@ -601,7 +604,9 @@ PyObject *py_decode_texture(PyObject *self, PyObject *const *args, Py_ssize_t na
             return nullptr;
         }
         result = PyBytes_FromStringAndSize(nullptr, (w * h * 2));
-        convertBCn<BCDEC_BC5_BLOCK_SIZE, 4, 2>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc5);
+        convertBCn<BCDEC_BC5_BLOCK_SIZE, 4, 2>(data, (uint8_t *) PyBytes_AsString(result), w, h, [](void *src, void *dst, int32_t pitch) {
+                                                   bcdec_bc5(src, dst, pitch, false);
+                                               });
     } else if (format == "BC6H") {
         if (data_len < BCDEC_BC6H_COMPRESSED_SIZE(w, h)) {
             PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match BC6H compressed size for %zd x %zd",
