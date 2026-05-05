@@ -51,9 +51,9 @@ else ()
         target_add_flags_if_supported(stbiw_obj PRIVATE /O2 /GL /Oi /Ot /fp:precise /GS- /Gy /Gw)
 
         # Only try AVX2 on x86/x64 MSVC toolsets
-        if (CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x86|i.86")
-            target_add_flags_if_supported(stbiw_obj PRIVATE /arch:AVX2)
-        endif()
+        #if (CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x86|i.86")
+        #    target_add_flags_if_supported(stbiw_obj PRIVATE /arch:AVX2)
+        #endif()
 
     else()
         # General opts for Clang/GCC
@@ -69,15 +69,15 @@ else ()
         endif()
 
         # CPU-specific flags by architecture
-        if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|x86|i.86")
-            target_add_flags_if_supported(stbiw_obj PRIVATE
-                    -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -mpopcnt
-            )
-        elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-            # Apple/ARM: NEON is default; avoid x86 flags. Optional: tune for host CPU.
-            target_add_flags_if_supported(stbiw_obj PRIVATE -mcpu=native)
-            # (You usually don't need -mfpu=neon on Apple/ARM; it’s implied.)
-        endif()
+        #if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|x86|i.86")
+        #    target_add_flags_if_supported(stbiw_obj PRIVATE
+        #            -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -mpopcnt
+        #    )
+        #elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+        #    # Apple/ARM: NEON is default; avoid x86 flags. Optional: tune for host CPU.
+        #    target_add_flags_if_supported(stbiw_obj PRIVATE -mcpu=native)
+        #    # (You usually don't need -mfpu=neon on Apple/ARM; it’s implied.)
+        #endif()
     endif()
 endif ()
 
