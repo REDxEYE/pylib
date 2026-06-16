@@ -87,3 +87,51 @@ jobs:
         with:
           name: macos-binaries
           path: ./build_universal/pylib.abi3.so
+
+  build-linux-gcc12:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update submodules
+        run: git submodule update --init --recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            python3-dev \
+            zip \
+            gcc-12 \
+            g++-12
+
+      - name: Configure with GCC 12
+        run: |
+          cmake -S . -B build-gcc12 \
+            -DCMAKE_C_COMPILER=gcc-12 \
+            -DCMAKE_CXX_COMPILER=g++-12 \
+            -DPython3_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
+            -DUSE_LIBTXC_DXTN=ON \
+            -DBUILD_SHARED_LIBS=OFF
+
+      - name: Build
+        run: cmake --build build-gcc12 --config Release --target pylib
+
+      - name: Check libstdc++ requirements
+        run: |
+          readelf --version-info build-gcc12/pylib.abi3.so | grep -oE 'GLIBCXX_[0-9.]+' | sort -V | uniq
+          echo "Highest required:"
+          readelf --version-info build-gcc12/pylib.abi3.so | grep -oE 'GLIBCXX_[0-9.]+' | sort -V | tail -1
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-binaries-gcc12
+          path: build-gcc12/pylib.abi3.so
