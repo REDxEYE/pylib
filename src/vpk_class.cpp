@@ -1,8 +1,9 @@
 #include "classes/vpk_class.h"
 #include "classes/vpk_glob_iterator.h"
-#include <format>
 #include <functional>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 
 PyObject *VPKFile_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
     VPKFile *self;
@@ -187,6 +188,13 @@ PyObject *VPKFile_find_file(VPKFile *self, PyObject *const *args, Py_ssize_t nar
     Py_RETURN_NONE;
 }
 
+
+std::string format_vpk_chunk_path(const std::string& base, int32_t archive_id) {
+    std::ostringstream ss;
+    ss << base << std::setw(3) << std::setfill('0') << archive_id << ".vpk";
+    return ss.str();
+}
+
 PyObject *get_entry_data(VPKFile *self, const VPKEntry &entry) {
     if (entry.archive_id == -1) {
         self->m_stream->seekg((uint32_t) self->m_embedded_data_start + entry.offset);
@@ -200,8 +208,9 @@ PyObject *get_entry_data(VPKFile *self, const VPKEntry &entry) {
         self->m_stream->read(PyBytes_AsString(data) + entry.preload.size(), entry.size);
         return data;
     }
-
-    std::string chunk_path = std::format("{}{:03}.vpk", self->m_chunked_base, entry.archive_id);
+    // G++-12 does not have support for std::format
+    std::string chunk_path = format_vpk_chunk_path(self->m_chunked_base, entry.archive_id);
+    // std::string chunk_path = std::format("{}{:03}.vpk", self->m_chunked_base, entry.archive_id);
     std::ifstream chunk_stream(chunk_path, std::ios::binary | std::ios::in);
     if (!chunk_stream.is_open()) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to open chunk file");

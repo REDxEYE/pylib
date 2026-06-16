@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.26...3.27)
 project(pylib C CXX)
 set(CMAKE_CXX_STANDARD 20)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(CheckCXXCompilerFlag)
 
 function(target_add_flags_if_supported tgt scope)
@@ -102,9 +103,7 @@ target_link_libraries(pylib PRIVATE Python3::SABIModule libzstd lz4_static mesho
 if (WIN32)
     target_link_libraries(pylib PRIVATE Shlwapi)
 endif ()
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    target_link_directories(pylib PRIVATE C:/PROGRAMS/python311/libs/)
-endif ()
+
 target_include_directories(pylib PRIVATE ./include ext/tinyexr ext/vtflib/src ext/tinyexr/deps/miniz)
 target_include_directories(pylib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/ext/vtflib/src")
 
