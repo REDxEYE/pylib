@@ -36,35 +36,8 @@ static struct PyModuleDef mesh_module_def = {
         mesh_methods
 };
 
-static PyObject* MeshModule_Init(PyObject* parent_module){
-    PyObject * module = PyModule_Create(&mesh_module_def);
-    if(!module){
-        Py_DECREF(module);
-        return nullptr;
-    }
-
-    if(PyModule_AddObject(parent_module, "mesh", module) < 0){
-        Py_DECREF(module);
-        return nullptr;
-    }
-    Py_INCREF(module);
-
-    PyObject *modules = PyImport_GetModuleDict();
-    if (PyDict_SetItemString(modules, "pylib.mesh", module) < 0) {
-        Py_DECREF(module);
-        return nullptr;
-    }
-    // Set __path__ attribute for the submodule
-    PyObject *path_list = Py_BuildValue("[s]", "pylib/mesh");
-    if (path_list) {
-        Py_INCREF(path_list);
-        if (PyModule_AddObject(module, "__path__", path_list) < 0) {
-            Py_DECREF(path_list);
-            Py_DECREF(module);
-            return nullptr;
-        }
-    }
-    return module;
+static PyObject *MeshModule_Init(PyObject *parent_module) {
+    return add_submodule(parent_module, "mesh", &mesh_module_def);
 }
 
 #endif //PYLIB_MESH_MODULE_H

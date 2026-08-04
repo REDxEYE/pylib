@@ -91,60 +91,15 @@ static struct PyModuleDef compression_module_def = {
 };
 
 static PyObject *CompressionModule_Init(PyObject *parent_module) {
-    PyObject *module = PyModule_Create(&compression_module_def);
-    if (!module) {
-        Py_DECREF(module);
+    PyObject *module = add_submodule(parent_module, "compression", &compression_module_def);
+    if (!module)
         return nullptr;
-    }
 
-    PyObject* decoder = PyType_FromSpec(&LZ4_spec);
-    if (!decoder){
-        Py_DECREF(module);
+    if (add_type(module, "LZ4ChainDecoder", &LZ4_spec) < 0)
         return nullptr;
-    };
-    if (PyModule_AddObject(module, "LZ4ChainDecoder", decoder) < 0) {
-        Py_DECREF(module);
-        Py_DECREF(decoder);
+    if (add_type(module, "LZ4ChainEncoder", &LZ4ChainEncoder_spec) < 0)
         return nullptr;
-    }
-    decoder = NULL; // stolen by module
 
-    PyObject* encoder = PyType_FromSpec(&LZ4ChainEncoder_spec);
-    if (!encoder){
-        Py_DECREF(module);
-        return nullptr;
-    };
-
-    if (PyModule_AddObject(module, "LZ4ChainEncoder", encoder) < 0) {
-        Py_DECREF(module);
-        Py_DECREF(encoder);
-        return nullptr;
-    }
-    encoder = NULL; // stolen by module
-
-    if (PyModule_AddObject(parent_module, "compression", module) < 0) {
-        Py_DECREF(module);
-        return nullptr;
-    }
-
-    Py_INCREF(module);
-
-    PyObject *modules = PyImport_GetModuleDict();
-    if (PyDict_SetItemString(modules, "pylib.compression", module) < 0) {
-        Py_DECREF(module);
-        return nullptr;
-    }
-
-    // Set __path__ attribute for the submodule
-    PyObject *path_list = Py_BuildValue("[s]", "pylib/compression");
-    if (path_list) {
-        Py_INCREF(path_list);
-        if (PyModule_AddObject(module, "__path__", path_list) < 0) {
-            Py_DECREF(path_list);
-            Py_DECREF(module);
-            return nullptr;
-        }
-    }
     return module;
 }
 

@@ -18,7 +18,11 @@ function(target_add_flags_if_supported tgt scope)
 endfunction()
 
 
-find_package(Python3 REQUIRED COMPONENTS Development.SABIModule)
+find_package(
+        Python3
+        COMPONENTS Interpreter Development.SABIModule
+        REQUIRED
+)
 add_subdirectory(ext/zstd/build/cmake)
 add_subdirectory(ext/lz4/build/cmake)
 add_subdirectory(ext/meshoptimizer)
@@ -83,7 +87,11 @@ else ()
 endif ()
 
 
-Python3_add_library(pylib MODULE USE_SABI 3.10 WITH_SOABI
+# Stable ABI floor 3.11: the oldest Python bundled by any supported Blender.
+# Blender 4.2 LTS and 4.5 LTS ship 3.11, 5.0 ships 3.11, 5.2 ships 3.13; only
+# Blender 4.0 was still on 3.10. An abi3 module is forward-compatible, so one
+# 3.11 build loads in every one of those.
+Python3_add_library(pylib MODULE USE_SABI 3.11 WITH_SOABI
         src/module.cpp
         src/utils.cpp
         src/modules/compression_module.cpp

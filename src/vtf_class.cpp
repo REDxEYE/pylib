@@ -1,4 +1,5 @@
 #include <cmath>
+#include <vector>
 #include "ext/stb_image_resize2.h"
 
 #include "classes/vtf_class.h"
@@ -96,33 +97,30 @@ PyObject *VTF_to_bytes(VTFObject *self, PyObject *const *args, Py_ssize_t nargs)
     (void) nargs;
     vlUInt guess = self->file->GetSize();
     if (guess == 0) guess = 16 * 1024;
-    thread_local uint8_t *tmp_buf = new uint8_t[guess];
+
+    // A std::vector, not a `thread_local` raw pointer: the previous version
+    // initialized the buffer only on the first call per thread, so a later, larger
+    // texture wrote past the original allocation -- and the buffer was deleted on
+    // the way out, leaving the next call writing into freed memory.
+    std::vector<uint8_t> buffer(guess);
     vlSize written = 0;
     VTFLib::Diagnostics::CError error;
-    if (!self->file->Save(tmp_buf, (vlSize) guess, written, error)) {
-        /* If buffer was too small, try again with the reported size */
-        if (written > (vlSize) guess) {
-            thread_local uint8_t *tmp_buf2 = new uint8_t[written];
-            vlSize written2 = 0;
-            VTFLib::Diagnostics::CError error2;
-            if (!self->file->Save(tmp_buf2, written, written2, error2)) {
-                delete[] tmp_buf2;
-                set_vtf_error(error2);
-                return nullptr;
-            }
-            PyObject *out2 = PyBytes_FromStringAndSize((const char *) (tmp_buf2), (Py_ssize_t) written2);
-            if (!out2) return nullptr;
-            delete[] tmp_buf2;
-            return out2;
+    if (!self->file->Save(buffer.data(), (vlSize) buffer.size(), written, error)) {
+        // Buffer was too small: retry once at the size VTFLib reported.
+        if (written <= (vlSize) buffer.size()) {
+            set_vtf_error(error);
+            return nullptr;
         }
-        set_vtf_error(error);
-        return nullptr;
+        buffer.assign(written, 0);
+        vlSize written_retry = 0;
+        VTFLib::Diagnostics::CError retry_error;
+        if (!self->file->Save(buffer.data(), (vlSize) buffer.size(), written_retry, retry_error)) {
+            set_vtf_error(retry_error);
+            return nullptr;
+        }
+        written = written_retry;
     }
-
-    PyObject *out = PyBytes_FromStringAndSize((const char *) tmp_buf, (Py_ssize_t) written);
-    if (!out) return nullptr;
-    delete[] tmp_buf;
-    return out;
+    return PyBytes_FromStringAndSize((const char *) buffer.data(), (Py_ssize_t) written);
 }
 
 PyObject *VTF_create(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -300,12 +298,16 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
                                         : VTFImageFormat::IMAGE_FORMAT_RGBA8888;
 
     VTFLib::Diagnostics::CError error;
+    // Owning containers throughout: the previous version paired `new[]` with
+    // `free()` (undefined behaviour), leaked `rgba_buffer` on every path, and
+    // returned early without releasing anything.
     for (int face = 0; face < face_count; ++face) {
         for (int frame = 0; frame < frame_count; ++frame) {
             auto orig_data = self->file->GetData(frame, face, 0, 0);
-            auto rgba_buffer = new uint8_t[VTFLib::CVTFFile::ComputeImageSize(width, height, 1, intermediate_format)];
-            if (!VTFLib::CVTFFile::Convert(orig_data, rgba_buffer, width, height, original_format, intermediate_format,
-                                           error)) {
+            std::vector<uint8_t> rgba_buffer(
+                    VTFLib::CVTFFile::ComputeImageSize(width, height, 1, intermediate_format));
+            if (!VTFLib::CVTFFile::Convert(orig_data, rgba_buffer.data(), width, height, original_format,
+                                           intermediate_format, error)) {
                 set_vtf_error(error);
                 return nullptr;
             }
@@ -315,8 +317,9 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
                 uint32_t mip_height = 0;
                 uint32_t mip_depth = 0;
                 VTFLib::CVTFFile::ComputeMipmapDimensions(width, height, 1, mip, mip_width, mip_height, mip_depth);
-                auto resized_buffer = (uint8_t *) stbir_resize(
-                        rgba_buffer,
+                // stbir_resize mallocs its own output, so it must be free()d.
+                auto *resized_buffer = (uint8_t *) stbir_resize(
+                        rgba_buffer.data(),
                         (int) width, (int) height, (int) (width * 4),
                         nullptr,
                         (int) mip_width, (int) mip_height,
@@ -326,24 +329,21 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
                         STBIR_EDGE_CLAMP,
                         filter);
                 if (!resized_buffer) {
-                    free(resized_buffer);
                     PyErr_SetString(PyExc_RuntimeError, "Failed to resize image data for mipmap generation");
                     return nullptr;
                 }
                 auto mip_size = VTFLib::CVTFFile::ComputeMipmapSize(width, height, 0, mip, original_format);
-                auto mip_buffer = new uint8_t[mip_size];
+                std::vector<uint8_t> mip_buffer(mip_size);
                 VTFLib::Diagnostics::CError mip_error;
-                if (!VTFLib::CVTFFile::Convert(resized_buffer, mip_buffer, mip_width, mip_height,
+                if (!VTFLib::CVTFFile::Convert(resized_buffer, mip_buffer.data(), mip_width, mip_height,
                                                intermediate_format, original_format, mip_error)) {
                     free(resized_buffer);
-                    free(mip_buffer);
                     set_vtf_error(mip_error);
                     return nullptr;
                 }
 
-                self->file->SetData(frame, face, 0, mip, mip_buffer);
+                self->file->SetData(frame, face, 0, mip, mip_buffer.data());
                 free(resized_buffer);
-                free(mip_buffer);
             }
         }
     }
@@ -439,7 +439,7 @@ PyObject *VTF_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
 
 void VTF_dealloc(VTFObject *self) {
     delete self->file;
-    freefunc(PyType_GetSlot(Py_TYPE(self), Py_tp_free))(self);
+    freefunc(PyType_GetSlot(Py_TYPE((PyObject *) self), Py_tp_free))((PyObject *) self);
 }
 
 PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs) {
@@ -457,24 +457,29 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     Py_ssize_t width = 0, height = 0;
     Py_ssize_t frames = 1, faces = 1, slices = 1;
 
-    tagVTFImageFormat src_image_format = IMAGE_FORMAT_RGBA8888;
-    tagVTFImageFormat dst_image_format = IMAGE_FORMAT_RGBA8888;
-    tagVTFMipmapFilter filter_mode = MIPMAP_FILTER_CATROM;
-    tagVTFImageFlag flags = TEXTUREFLAGS_SRGB;
+    // Parsed as `unsigned long` and cast afterwards: passing the address of a
+    // 4-byte enum to a `k`/`n` conversion writes 8 bytes and corrupts whatever
+    // follows it on the stack.
+    unsigned long src_image_format = IMAGE_FORMAT_RGBA8888;
+    unsigned long dst_image_format = IMAGE_FORMAT_RGBA8888;
+    unsigned long filter_mode = MIPMAP_FILTER_CATROM;
+    unsigned long flags = TEXTUREFLAGS_SRGB;
 
     int generate_mipmaps = 1;
     int generate_thumbnail = 1;
-    int resize_to_pow2 = 1;
+    // Py_ssize_t, not int: an `n` conversion writes 8 bytes, so an `int` here
+    // overwrote the neighbouring resolution limits.
+    Py_ssize_t resize_to_pow2 = 1;
     Py_ssize_t resolution_limit_x = 4096;
     Py_ssize_t resolution_limit_y = 4096;
 
     if (!PyArg_ParseTupleAndKeywords(
             args, kwargs,
-            "Onn|"
-            "nnnn"
-            "kkk"
-            "pp"
-            "nnn",
+            "Onn|"      // data, width, height
+            "nnn"       // frames, faces, slices
+            "kkkk"      // src_image_format, dst_image_format, filter_mode, flags
+            "pp"        // generate_mipmaps, generate_thumbnail
+            "nnn",      // resize_to_pow2, resolution_limit_x, resolution_limit_y
             const_cast<char **>(kwlist),
             &data_buf, &width, &height,
             &frames, &faces, &slices,
@@ -490,7 +495,7 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     VTFLib::Diagnostics::CError error;
     SVTFCreateOptions options;
     vlImageCreateDefaultCreateStructure(&options);
-    options.ImageFormat = dst_image_format;
+    options.ImageFormat = (tagVTFImageFormat) dst_image_format;
     options.bThumbnail = generate_thumbnail;
     options.bMipmaps = generate_mipmaps;
     switch (resize_to_pow2) {
@@ -516,16 +521,47 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
         options.uiResizeClampHeight = resolution_limit_y;
     }
 
-    options.MipmapFilter = filter_mode;
+    if (width <= 0 || height <= 0)
+        return PyErr_Format(PyExc_ValueError, "width and height must be > 0");
+    if (frames <= 0 || faces <= 0 || slices <= 0)
+        return PyErr_Format(PyExc_ValueError, "frames, faces and slices must be > 0");
+
+    options.MipmapFilter = (tagVTFMipmapFilter) filter_mode;
     auto data = PyROBytesView(data_buf);
-    std::vector<uint8_t> dst_data(VTFLib::CVTFFile::ComputeImageSize(width, height, 1, dst_image_format));
-    if (!VTFLib::CVTFFile::Convert((vlByte *) data.data(), (vlByte *) dst_data.data(), width, height,
-                                   src_image_format, dst_image_format, error)) {
-        set_vtf_error(error);
-        return nullptr;
+
+    // `Create` is documented as `lpImageDataRGBA8888` and converts to
+    // `options.ImageFormat` itself, so the input must be
+    // RGBA8888 -- converting straight to `dst_image_format` here (as the previous
+    // version did) both mis-sized the buffer and handed Create data in a format it
+    // would then reinterpret, crashing on any non-RGBA8888 destination.
+    //
+    // It also takes an array of `frames * faces * slices` image pointers, one per
+    // stored image; the previous version passed the address of a single buffer, so
+    // any call with more than one frame/face/slice read past it.
+    const Py_ssize_t image_count = frames * faces * slices;
+    const size_t src_image_size = VTFLib::CVTFFile::ComputeImageSize(
+            width, height, 1, (tagVTFImageFormat) src_image_format);
+    const size_t rgba_image_size = VTFLib::CVTFFile::ComputeImageSize(
+            width, height, 1, IMAGE_FORMAT_RGBA8888);
+    if (data.size() < src_image_size * (size_t) image_count) {
+        return PyErr_Format(PyExc_ValueError,
+                            "data length (%zd) is too small for %zd image(s) of %zu bytes",
+                            (Py_ssize_t) data.size(), image_count, src_image_size);
     }
-    auto dst_raw_data = dst_data.data();
-    if (!self->file->Create(width, height, frames, faces, slices, (vlByte **) &dst_raw_data, options, error)) {
+
+    std::vector<uint8_t> rgba_data(rgba_image_size * (size_t) image_count);
+    std::vector<vlByte *> image_pointers((size_t) image_count);
+    for (Py_ssize_t image = 0; image < image_count; ++image) {
+        auto *dst = rgba_data.data() + rgba_image_size * (size_t) image;
+        image_pointers[(size_t) image] = (vlByte *) dst;
+        if (!VTFLib::CVTFFile::Convert((vlByte *) data.data() + src_image_size * (size_t) image, dst,
+                                       width, height, (tagVTFImageFormat) src_image_format,
+                                       IMAGE_FORMAT_RGBA8888, error)) {
+            set_vtf_error(error);
+            return nullptr;
+        }
+    }
+    if (!self->file->Create(width, height, frames, faces, slices, image_pointers.data(), options, error)) {
         set_vtf_error(error);
         return nullptr;
     }

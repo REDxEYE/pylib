@@ -69,36 +69,7 @@ static struct PyModuleDef image_module_def = {
 };
 
 static PyObject *ImageModule_Init(PyObject *parent_module) {
-    PyObject *module = PyModule_Create(&image_module_def);
-    if (!module) {
-        Py_DECREF(module);
-        return nullptr;
-    }
-
-
-    if (PyModule_AddObject(parent_module, "image", module) < 0) {
-        Py_DECREF(module);
-        return nullptr;
-    }
-
-    Py_INCREF(module);
-
-    PyObject *modules = PyImport_GetModuleDict();
-    if (PyDict_SetItemString(modules, "pylib.image", module) < 0) {
-        Py_DECREF(module);
-        return nullptr;
-    }
-    // Set __path__ attribute for the submodule
-    PyObject *path_list = Py_BuildValue("[s]", "pylib/image");
-    if (path_list) {
-        Py_INCREF(path_list);
-        if (PyModule_AddObject(module, "__path__", path_list) < 0) {
-            Py_DECREF(path_list);
-            Py_DECREF(module);
-            return nullptr;
-        }
-    }
-    return module;
+    return add_submodule(parent_module, "image", &image_module_def);
 }
 
 #endif //PYLIB_IMAGE_MODULE_H

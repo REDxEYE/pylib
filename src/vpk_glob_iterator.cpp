@@ -15,9 +15,9 @@ PyObject *GlobIter_iter(PyObject *self) {
 }
 
 void GlobIter_dealloc(VPKGlobIter *it) {
-    Py_XDECREF(it->owner);
+    Py_XDECREF((PyObject *) it->owner);
     Py_XDECREF(it->pattern_obj);
-    PyObject_Del(it);  // limited-API safe
+    PyObject_Del((PyObject *) it);  // limited-API safe
 }
 
 PyObject *GlobIter_iternext(VPKGlobIter *it) {
@@ -53,8 +53,12 @@ PyObject *GlobIter_iternext(VPKGlobIter *it) {
             Py_DECREF(entry_data);
             return nullptr;
         }
-        PyTuple_SetItem(tup, 0, name_py);     // steals
-        PyTuple_SetItem(tup, 1, entry_data);  // steals
+        // Both steal on success; on failure they drop the reference themselves, so
+        // the tuple is all that is left to release.
+        if (PyTuple_SetItem(tup, 0, name_py) < 0 || PyTuple_SetItem(tup, 1, entry_data) < 0) {
+            Py_DECREF(tup);
+            return nullptr;
+        }
         return tup; // one item per next()
     }
 

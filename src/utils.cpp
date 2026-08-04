@@ -18,96 +18,138 @@ PyObject *type_error(const char* arg, const char* expected, PyObject* got) {
     return error;
 }
 
-PyObject *create_int_enum(const char *name, const std::span<std::pair<std::string, uint32_t>> &members) {
-    PyObject* enum_mod = PyImport_ImportModule("enum");
+//! Shared implementation of create_int_enum/create_int_flags: both build a class
+//! from ``enum`` with the same member dict, differing only in the base class.
+static PyObject *create_enum_of_kind(const char *kind, const char *name,
+                                     const std::span<std::pair<std::string, uint32_t>> &members) {
+    PyObject *enum_mod = PyImport_ImportModule("enum");
     if (!enum_mod)
         return nullptr;
 
-    PyObject* intenum_cls = PyObject_GetAttrString(enum_mod, "IntEnum");
+    PyObject *base_cls = PyObject_GetAttrString(enum_mod, kind);
     Py_DECREF(enum_mod);
-    if (!intenum_cls)
+    if (!base_cls)
         return nullptr;
 
-    PyObject* members_dict = PyDict_New();
+    PyObject *members_dict = PyDict_New();
     if (!members_dict) {
-        Py_DECREF(intenum_cls);
+        Py_DECREF(base_cls);
         return nullptr;
     }
 
-    for (const auto& kv : members) {
-        PyObject* val = PyLong_FromUnsignedLong(kv.second);
+    for (const auto &kv: members) {
+        PyObject *val = PyLong_FromUnsignedLong(kv.second);
         if (!val) {
             Py_DECREF(members_dict);
-            Py_DECREF(intenum_cls);
+            Py_DECREF(base_cls);
             return nullptr;
         }
-        if (PyDict_SetItemString(members_dict, kv.first.c_str(), val) < 0) {
-            Py_DECREF(val);
-            Py_DECREF(members_dict);
-            Py_DECREF(intenum_cls);
-            return nullptr;
-        }
+        int failed = PyDict_SetItemString(members_dict, kv.first.c_str(), val) < 0;
         Py_DECREF(val);
+        if (failed) {
+            Py_DECREF(members_dict);
+            Py_DECREF(base_cls);
+            return nullptr;
+        }
     }
 
-    PyObject* args = PyTuple_Pack(2, PyUnicode_FromString(name), members_dict);
+    PyObject *py_name = PyUnicode_FromString(name);
+    if (!py_name) {
+        Py_DECREF(members_dict);
+        Py_DECREF(base_cls);
+        return nullptr;
+    }
+    // PyTuple_Pack does not steal, so drop our own references afterwards.
+    PyObject *args = PyTuple_Pack(2, py_name, members_dict);
+    Py_DECREF(py_name);
     Py_DECREF(members_dict);
     if (!args) {
-        Py_DECREF(intenum_cls);
+        Py_DECREF(base_cls);
         return nullptr;
     }
 
-    PyObject* enum_type = PyObject_CallObject(intenum_cls, args);
+    PyObject *enum_type = PyObject_CallObject(base_cls, args);
     Py_DECREF(args);
-    Py_DECREF(intenum_cls);
+    Py_DECREF(base_cls);
 
     return enum_type;  // new reference
 }
 
+PyObject *create_int_enum(const char *name, const std::span<std::pair<std::string, uint32_t>> &members) {
+    return create_enum_of_kind("IntEnum", name, members);
+}
+
 PyObject *create_int_flags(const char *name, const std::span<std::pair<std::string, uint32_t>> &members) {
-    PyObject* enum_mod = PyImport_ImportModule("enum");
-    if (!enum_mod)
+    return create_enum_of_kind("IntFlag", name, members);
+}
+
+PyObject *add_submodule(PyObject *parent, const char *name, PyModuleDef *def) {
+    PyObject *module = PyModule_Create(def);
+    if (!module)
         return nullptr;
 
-    PyObject* intenum_cls = PyObject_GetAttrString(enum_mod, "IntFlag");
-    Py_DECREF(enum_mod);
-    if (!intenum_cls)
+    // Make the submodule importable as ``pylib.<name>`` and package-like, so
+    // ``from pylib.vtf import ...`` resolves without a Python-side shim.
+    std::string qualified_name = std::string("pylib.") + name;
+    PyObject *path_list = Py_BuildValue("[s]", qualified_name.c_str());
+    if (!path_list) {
+        Py_DECREF(module);
         return nullptr;
-
-    PyObject* members_dict = PyDict_New();
-    if (!members_dict) {
-        Py_DECREF(intenum_cls);
+    }
+    int failed = PyModule_AddObject(module, "__path__", path_list) < 0;
+    if (failed) {
+        Py_DECREF(path_list);
+        Py_DECREF(module);
         return nullptr;
     }
 
-    for (const auto& kv : members) {
-        PyObject* val = PyLong_FromUnsignedLong(kv.second);
-        if (!val) {
-            Py_DECREF(members_dict);
-            Py_DECREF(intenum_cls);
-            return nullptr;
-        }
-        if (PyDict_SetItemString(members_dict, kv.first.c_str(), val) < 0) {
-            Py_DECREF(val);
-            Py_DECREF(members_dict);
-            Py_DECREF(intenum_cls);
-            return nullptr;
-        }
-        Py_DECREF(val);
-    }
-
-    PyObject* args = PyTuple_Pack(2, PyUnicode_FromString(name), members_dict);
-    Py_DECREF(members_dict);
-    if (!args) {
-        Py_DECREF(intenum_cls);
+    if (PyDict_SetItemString(PyImport_GetModuleDict(), qualified_name.c_str(), module) < 0) {
+        Py_DECREF(module);
         return nullptr;
     }
 
-    PyObject* enum_type = PyObject_CallObject(intenum_cls, args);
-    Py_DECREF(args);
-    Py_DECREF(intenum_cls);
+    // Steals our reference on success, leaving `parent` as the sole owner.
+    if (PyModule_AddObject(parent, name, module) < 0) {
+        PyDict_DelItemString(PyImport_GetModuleDict(), qualified_name.c_str());
+        Py_DECREF(module);
+        return nullptr;
+    }
+    return module;  // borrowed, owned by parent
+}
 
-    return enum_type;  // new reference
+int add_type(PyObject *module, const char *name, PyType_Spec *spec) {
+    PyObject *type = PyType_FromSpec(spec);
+    if (!type)
+        return -1;
+    if (PyModule_AddObject(module, name, type) < 0) {  // steals on success
+        Py_DECREF(type);
+        return -1;
+    }
+    return 0;
+}
+
+int add_int_enum(PyObject *module, const char *name,
+                 const std::span<std::pair<std::string, uint32_t>> &members) {
+    PyObject *enum_type = create_int_enum(name, members);
+    if (!enum_type)
+        return -1;
+    if (PyModule_AddObject(module, name, enum_type) < 0) {  // steals on success
+        Py_DECREF(enum_type);
+        return -1;
+    }
+    return 0;
+}
+
+int add_int_flags(PyObject *module, const char *name,
+                  const std::span<std::pair<std::string, uint32_t>> &members) {
+    PyObject *flags_type = create_int_flags(name, members);
+    if (!flags_type)
+        return -1;
+    if (PyModule_AddObject(module, name, flags_type) < 0) {  // steals on success
+        Py_DECREF(flags_type);
+        return -1;
+    }
+    return 0;
 }
 
 PyROBytesView::PyROBytesView(PyObject *obj) {

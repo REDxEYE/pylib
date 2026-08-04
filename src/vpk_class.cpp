@@ -2,6 +2,7 @@
 #include "classes/vpk_glob_iterator.h"
 #include <functional>
 #include <algorithm>
+#include <cstring>
 #include <sstream>
 #include <iomanip>
 
@@ -15,7 +16,7 @@ void VPKFile_dealloc(VPKFile *self) {
     delete self->m_stream;
     delete self->m_entries;
     delete self->m_names;
-    freefunc(PyType_GetSlot(Py_TYPE(self), Py_tp_free))(self);
+    freefunc(PyType_GetSlot(Py_TYPE((PyObject *) self), Py_tp_free))((PyObject *) self);
 }
 
 // Pack struct to 1 byte
@@ -78,13 +79,16 @@ int VPKFile_init(VPKFile *self, PyObject *args, PyObject *kwds) {
         }
         self->m_embedded_data_start = 0;
         stream.seekg(footer.directory_offset);
-        for (int i = 0; i < footer.file_count; ++i) {
+        for (uint32_t i = 0; i < footer.file_count; ++i) {
             VPKEntry &entry = self->m_entries->emplace_back();
             uint32_t name_len;
             stream.read((char *) &name_len, 4);
             entry.name.resize(name_len);
-            self->m_names->emplace(entry.name);
             stream.read(entry.name.data(), name_len);
+            // Registered *after* the read: inserting first recorded a string of NUL
+            // bytes for every entry, so `check()` never matched in a VtMB VPK.
+            entry.name = to_lower(entry.name);
+            self->m_names->emplace(entry.name);
             stream.read((char *) &entry.offset, 4);
             stream.read((char *) &entry.size, 4);
             entry.archive_id = -1;
@@ -256,7 +260,7 @@ PyObject *VPKFile_glob(VPKFile *self, PyObject *const *args, Py_ssize_t nargs) {
     if (!it) return nullptr;
 
     it->owner = self;
-    Py_INCREF(self);
+    Py_INCREF((PyObject *) self);
     it->index = 0;
     it->pattern_obj = (PyObject *) args[0];
     Py_INCREF(it->pattern_obj);

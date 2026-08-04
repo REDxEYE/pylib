@@ -16,14 +16,29 @@ PyObject *py_zstd_decompress(PyObject *self, PyObject *const *args, Py_ssize_t n
     }
 
     Py_ssize_t decompressed_size = PyLong_AsLongLong(args[1]);
-    std::vector<uint8_t> decompressed_buffer(decompressed_size);
-    size_t bytes_written = ZSTD_decompress(decompressed_buffer.data(), decompressed_size, data_view.data(),
+    if (PyErr_Occurred())
+        return nullptr;
+    if (decompressed_size < 0)
+        return PyErr_Format(PyExc_ValueError, "decompressed_size must not be negative, got %zd", decompressed_size);
+
+    // Allocate through PyBytes so an absurd size raises MemoryError rather than
+    // letting std::vector throw std::bad_alloc across the C boundary, which
+    // terminates the process. `_PyBytes_Resize` is excluded from the stable ABI at
+    // every version, so a short result is copied into a correctly-sized object
+    // instead of being trimmed in place.
+    PyObject *scratch = PyBytes_FromStringAndSize(nullptr, decompressed_size);
+    if (!scratch)
+        return nullptr;
+    size_t bytes_written = ZSTD_decompress(PyBytes_AsString(scratch), (size_t) decompressed_size, data_view.data(),
                                            data_view.size());
     if (ZSTD_isError(bytes_written)) {
+        Py_DECREF(scratch);
         return PyErr_Format(PyExc_ValueError, "Decompression failed: %s", ZSTD_getErrorName(bytes_written));
     }
-
-    PyObject *res = PyBytes_FromStringAndSize(reinterpret_cast<const char *>(decompressed_buffer.data()), bytes_written);
+    if ((Py_ssize_t) bytes_written == decompressed_size)
+        return scratch;
+    PyObject *res = PyBytes_FromStringAndSize(PyBytes_AsString(scratch), (Py_ssize_t) bytes_written);
+    Py_DECREF(scratch);
     return res;
 }
 
@@ -43,16 +58,15 @@ PyObject *py_zstd_compress(PyObject *self, PyObject *const *args, Py_ssize_t nar
                                 compression_level);
     }
     auto compressed_size = (Py_ssize_t) ZSTD_compressBound(data_view.size());
-    char *compressed_data = new char[compressed_size];
-    Py_ssize_t bytes_written = (Py_ssize_t) ZSTD_compress(compressed_data, compressed_size, data_view.data(),
+    // `Py_DECREF` used to be called on this raw `new char[]` buffer on the error
+    // path, corrupting the heap. A vector removes the possibility entirely.
+    std::vector<char> compressed_data(compressed_size);
+    Py_ssize_t bytes_written = (Py_ssize_t) ZSTD_compress(compressed_data.data(), compressed_size, data_view.data(),
                                                           data_view.size(), compression_level);
     if (ZSTD_isError(bytes_written)) {
-        Py_DECREF(compressed_data);
         return PyErr_Format(PyExc_ValueError, "Compression failed: %s", ZSTD_getErrorName(bytes_written));
     }
-    PyObject *res = PyBytes_FromStringAndSize(compressed_data, bytes_written);
-    delete[] compressed_data;
-    return res;
+    return PyBytes_FromStringAndSize(compressed_data.data(), bytes_written);
 }
 
 PyObject *py_zstd_decompress_stream(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -77,6 +91,10 @@ PyObject *py_zstd_decompress_stream(PyObject *self, PyObject *const *args, Py_ss
     ZSTD_inBuffer input = {data_view.data(), data_view.size(), 0};
     size_t out_capacity = 65536;
     PyObject *result = PyBytes_FromStringAndSize(nullptr, 0);
+    if (!result) {
+        ZSTD_freeDStream(dstream);
+        return nullptr;
+    }
 
     while (input.pos < input.size) {
         char out_buffer[65536];
@@ -88,7 +106,13 @@ PyObject *py_zstd_decompress_stream(PyObject *self, PyObject *const *args, Py_ss
             return PyErr_Format(PyExc_ValueError, "Decompression failed: %s", ZSTD_getErrorName(ret));
         }
         if (output.pos > 0) {
+            // Sets `result` to NULL on failure (and already dropped both refs), so
+            // it must be checked before the next iteration dereferences it.
             PyBytes_ConcatAndDel(&result, PyBytes_FromStringAndSize(out_buffer, (Py_ssize_t) output.pos));
+            if (!result) {
+                ZSTD_freeDStream(dstream);
+                return nullptr;
+            }
         }
         if (ret == 0) break;
     }
@@ -127,6 +151,10 @@ PyObject *py_zstd_compress_stream(PyObject *self, PyObject *const *args, Py_ssiz
     ZSTD_inBuffer input = {data_view.data(), data_view.size(), 0};
     size_t out_capacity = 65536;
     PyObject *result = PyBytes_FromStringAndSize(nullptr, 0);
+    if (!result) {
+        ZSTD_freeCStream(cstream);
+        return nullptr;
+    }
 
     while (input.pos < input.size) {
         char out_buffer[65536];
@@ -139,6 +167,10 @@ PyObject *py_zstd_compress_stream(PyObject *self, PyObject *const *args, Py_ssiz
         }
         if (output.pos > 0) {
             PyBytes_ConcatAndDel(&result, PyBytes_FromStringAndSize(out_buffer, (Py_ssize_t) output.pos));
+            if (!result) {
+                ZSTD_freeCStream(cstream);
+                return nullptr;
+            }
         }
     }
 
@@ -155,6 +187,10 @@ PyObject *py_zstd_compress_stream(PyObject *self, PyObject *const *args, Py_ssiz
         }
         if (output.pos > 0) {
             PyBytes_ConcatAndDel(&result, PyBytes_FromStringAndSize(out_buffer, (Py_ssize_t) output.pos));
+            if (!result) {
+                ZSTD_freeCStream(cstream);
+                return nullptr;
+            }
         }
         if (ret == 0) finished = 1;
     }
@@ -173,18 +209,29 @@ PyObject *py_lz4_decompress(PyObject *self, PyObject *const *args, Py_ssize_t na
     if (!PyLong_Check(args[1]))
         return type_error("decompressed_size", "int", args[1]);
 
-    int decompressed_size = PyLong_AsLong(args[1]);
-    PyObject *decompressed_data = PyBytes_FromStringAndSize(nullptr, decompressed_size);
+    long decompressed_size = PyLong_AsLong(args[1]);
+    if (PyErr_Occurred())
+        return nullptr;
+    // A negative size reached PyBytes_FromStringAndSize unchecked, which returns
+    // NULL, and PyBytes_AsString(NULL) then crashed the interpreter.
+    if (decompressed_size < 0)
+        return PyErr_Format(PyExc_ValueError, "decompressed_size must not be negative, got %ld", decompressed_size);
+    if (decompressed_size > INT_MAX)
+        return PyErr_Format(PyExc_ValueError, "decompressed_size too large for LZ4: %ld", decompressed_size);
+
+    PyObject *decompressed_data = PyBytes_FromStringAndSize(nullptr, (Py_ssize_t) decompressed_size);
+    if (!decompressed_data)
+        return nullptr;
     int bytes_written = LZ4_decompress_safe(data_view.data(), PyBytes_AsString(decompressed_data),
                                             (int) data_view.size(),
-                                            decompressed_size);
+                                            (int) decompressed_size);
     if (bytes_written < 0) {
         Py_DECREF(decompressed_data);
         return PyErr_Format(PyExc_ValueError, "Decompression failed: %i", bytes_written);
     }
     if (bytes_written != decompressed_size) {
         Py_DECREF(decompressed_data);
-        return PyErr_Format(PyExc_ValueError, "Decompression size mismatch: expected %zd, got %zu", decompressed_size,
+        return PyErr_Format(PyExc_ValueError, "Decompression size mismatch: expected %ld, got %i", decompressed_size,
                             bytes_written);
     }
     return decompressed_data;
@@ -204,9 +251,25 @@ PyObject *py_lz4_decompress_continue(PyObject *self, PyObject *const *args, Py_s
     if (!PyLong_Check(args[2]))
         return type_error("decompressed_size", "int", args[2]);
 
+    if (!data_view)
+        return type_error("data", "bytes", args[1]);
+
     char *context = PyBytes_AsString(args[0]);
+    if (PyBytes_Size(args[0]) < (Py_ssize_t) sizeof(LZ4_streamDecode_t))
+        return PyErr_Format(PyExc_ValueError, "context must be at least %zd bytes",
+                            (Py_ssize_t) sizeof(LZ4_streamDecode_t));
+
     Py_ssize_t decompressed_size = PyLong_AsLongLong(args[2]);
+    if (PyErr_Occurred())
+        return nullptr;
+    if (decompressed_size < 0)
+        return PyErr_Format(PyExc_ValueError, "decompressed_size must not be negative, got %zd", decompressed_size);
+    if (decompressed_size > INT_MAX)
+        return PyErr_Format(PyExc_ValueError, "decompressed_size too large for LZ4: %zd", decompressed_size);
+
     PyObject *decompressed_data = PyBytes_FromStringAndSize(nullptr, decompressed_size);
+    if (!decompressed_data)
+        return nullptr;
     int bytes_written = LZ4_decompress_safe_continue((LZ4_streamDecode_t *) context, data_view.data(),
                                                      PyBytes_AsString(decompressed_data), (int) data_view.size(),
                                                      (int) decompressed_size);
@@ -216,7 +279,7 @@ PyObject *py_lz4_decompress_continue(PyObject *self, PyObject *const *args, Py_s
     }
     if (bytes_written != decompressed_size) {
         Py_DECREF(decompressed_data);
-        return PyErr_Format(PyExc_ValueError, "Decompression size mismatch: expected %zd, got %zu", decompressed_size,
+        return PyErr_Format(PyExc_ValueError, "Decompression size mismatch: expected %zd, got %i", decompressed_size,
                             bytes_written);
     }
     return decompressed_data;
@@ -230,19 +293,18 @@ PyObject *py_lz4_compress(PyObject *self, PyObject *const *args, Py_ssize_t narg
         return type_error("data", "bytes", args[0]);
 
     size_t data_size = data_view.size();
-    if (data_size > 0x7FFFFFF) {
-        return PyErr_Format(PyExc_ValueError, "Data size too large for LZ4 compression: %zd bytes", data_size);
+    // LZ4_MAX_INPUT_SIZE, not the 0x7FFFFFF (one digit short of 0x7FFFFFFF) that
+    // used to be here, which rejected valid inputs between 128 MiB and 2 GiB.
+    if (data_size > LZ4_MAX_INPUT_SIZE) {
+        return PyErr_Format(PyExc_ValueError, "Data size too large for LZ4 compression: %zu bytes", data_size);
     }
 
     auto compressed_size = LZ4_compressBound((int) data_size);
-    char *compressed_data = new char[compressed_size];
-    int bytes_written = LZ4_compress_default(data_view.data(), compressed_data, (int) data_size,
+    std::vector<char> compressed_data(compressed_size);
+    int bytes_written = LZ4_compress_default(data_view.data(), compressed_data.data(), (int) data_size,
                                              (int) compressed_size);
-    if (bytes_written < 0) {
-        delete[] compressed_data;
+    if (bytes_written <= 0 && data_size != 0) {
         return PyErr_Format(PyExc_ValueError, "Compression failed: %i", bytes_written);
     }
-    PyObject *res = PyBytes_FromStringAndSize(compressed_data, bytes_written);
-    delete[] compressed_data;
-    return res;
+    return PyBytes_FromStringAndSize(compressed_data.data(), bytes_written);
 }

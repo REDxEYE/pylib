@@ -1,5 +1,6 @@
 #include <string>
 #include <functional>
+#include <cstring>
 #include "modules/image_module.h"
 #include "tinyexr.h"
 #include "ext/stb_image_write.h"
@@ -560,40 +561,57 @@ PyObject *py_decode_texture(PyObject *self, PyObject *const *args, Py_ssize_t na
         return nullptr;
     }
     Py_ssize_t format_len = 0;
-    std::string format = PyUnicode_AsUTF8AndSize(args[3], &format_len);
-    PyObject *result;
+    const char *format_c = PyUnicode_AsUTF8AndSize(args[3], &format_len);
+    if (!format_c)
+        return nullptr;  // non-UTF8 str; converter set the error
+    // Built from (ptr, len) rather than the bare pointer so a name containing an
+    // embedded NUL compares unequal instead of silently matching its prefix.
+    std::string format(format_c, (size_t) format_len);
+
+    // Every decoder writes straight into the result buffer, so one allocation
+    // helper keeps the NULL check from having to be repeated per branch.
+    PyObject *result = nullptr;
+    auto alloc = [&result](Py_ssize_t size) -> uint8_t * {
+        result = PyBytes_FromStringAndSize(nullptr, size);
+        return result ? (uint8_t *) PyBytes_AsString(result) : nullptr;
+    };
+    uint8_t *out;
     if (format == "BC1" || format == "DXT1") {
         if (data_len < BCDEC_BC1_COMPRESSED_SIZE(w, h)) {
             PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match BC1 compressed size for %zd x %zd",
                          data_len, w, h);
             return nullptr;
         }
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 4));
-        convertBCn<BCDEC_BC1_BLOCK_SIZE, 4, 4>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc1);
+        out = alloc(w * h * 4);
+        if (!out) return nullptr;
+        convertBCn<BCDEC_BC1_BLOCK_SIZE, 4, 4>(data, out, w, h, bcdec_bc1);
     } else if (format == "BC2" || format == "DXT3") {
         if (data_len < BCDEC_BC2_COMPRESSED_SIZE(w, h)) {
             PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match BC2 compressed size for %zd x %zd",
                          data_len, w, h);
             return nullptr;
         }
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 4));
-        convertBCn<BCDEC_BC2_BLOCK_SIZE, 4, 4>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc2);
+        out = alloc(w * h * 4);
+        if (!out) return nullptr;
+        convertBCn<BCDEC_BC2_BLOCK_SIZE, 4, 4>(data, out, w, h, bcdec_bc2);
     } else if (format == "BC3" || format == "DXT5") {
         if (data_len < BCDEC_BC3_COMPRESSED_SIZE(w, h)) {
             PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match BC3 compressed size for %zd x %zd",
                          data_len, w, h);
             return nullptr;
         }
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 4));
-        convertBCn<BCDEC_BC3_BLOCK_SIZE, 4, 4>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc3);
+        out = alloc(w * h * 4);
+        if (!out) return nullptr;
+        convertBCn<BCDEC_BC3_BLOCK_SIZE, 4, 4>(data, out, w, h, bcdec_bc3);
     } else if (format == "BC4" || format == "ATI1N") {
         if (data_len < BCDEC_BC4_COMPRESSED_SIZE(w, h)) {
             PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match BC4 compressed size for %zd x %zd",
                          data_len, w, h);
             return nullptr;
         }
-        result = PyBytes_FromStringAndSize(nullptr, (w * h));
-        convertBCn<BCDEC_BC4_BLOCK_SIZE, 4, 1>(data, (uint8_t *) PyBytes_AsString(result), w, h,
+        out = alloc(w * h);
+        if (!out) return nullptr;
+        convertBCn<BCDEC_BC4_BLOCK_SIZE, 4, 1>(data, out, w, h,
                                                [](void *src, void *dst, int32_t pitch) {
                                                    bcdec_bc4(src, dst, pitch, false);
                                                });
@@ -603,8 +621,9 @@ PyObject *py_decode_texture(PyObject *self, PyObject *const *args, Py_ssize_t na
                          data_len, w, h);
             return nullptr;
         }
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 2));
-        convertBCn<BCDEC_BC5_BLOCK_SIZE, 4, 2>(data, (uint8_t *) PyBytes_AsString(result), w, h, [](void *src, void *dst, int32_t pitch) {
+        out = alloc(w * h * 2);
+        if (!out) return nullptr;
+        convertBCn<BCDEC_BC5_BLOCK_SIZE, 4, 2>(data, out, w, h, [](void *src, void *dst, int32_t pitch) {
                                                    bcdec_bc5(src, dst, pitch, false);
                                                });
     } else if (format == "BC6H") {
@@ -613,22 +632,26 @@ PyObject *py_decode_texture(PyObject *self, PyObject *const *args, Py_ssize_t na
                          data_len, w, h);
             return nullptr;
         }
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 2 * 3));
-        convertBC6<6>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc6h_half_unsigned);
+        out = alloc(w * h * 2 * 3);
+        if (!out) return nullptr;
+        convertBC6<6>(data, out, w, h, bcdec_bc6h_half_unsigned);
     } else if (format == "BC7") {
         if (data_len < BCDEC_BC7_COMPRESSED_SIZE(w, h)) {
             PyErr_Format(PyExc_ValueError, "image_data length (%zd) does not match BC7 compressed size for %zd x %zd",
                          data_len, w, h);
             return nullptr;
         }
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 4));
-        convertBCn<BCDEC_BC7_BLOCK_SIZE, 4, 4>(data, (uint8_t *) PyBytes_AsString(result), w, h, bcdec_bc7);
+        out = alloc(w * h * 4);
+        if (!out) return nullptr;
+        convertBCn<BCDEC_BC7_BLOCK_SIZE, 4, 4>(data, out, w, h, bcdec_bc7);
     } else if (format == "ETC1") {
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 4));
-        decode_etc1(data, w, h, (uint32_t *) PyBytes_AsString(result));
+        out = alloc(w * h * 4);
+        if (!out) return nullptr;
+        decode_etc1(data, w, h, (uint32_t *) out);
     } else if (format == "ETC2") {
-        result = PyBytes_FromStringAndSize(nullptr, (w * h * 4));
-        decode_etc2(data, w, h, (uint32_t *) PyBytes_AsString(result));
+        out = alloc(w * h * 4);
+        if (!out) return nullptr;
+        decode_etc2(data, w, h, (uint32_t *) out);
     } else {
         PyErr_SetString(PyExc_ValueError,
                         "format must be one of: 'BC1', 'DXT1', 'BC2', 'DXT3', 'BC3', 'DXT5', 'BC4', 'BC5', 'BC6H', "

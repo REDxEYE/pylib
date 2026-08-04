@@ -28,6 +28,30 @@ inline int mul3_checked_psszt(Py_ssize_t a, Py_ssize_t b, Py_ssize_t c, Py_ssize
 PyObject* create_int_enum(const char* name, const std::span<std::pair<std::string, uint32_t>>& members);
 PyObject *create_int_flags(const char *name, const std::span<std::pair<std::string, uint32_t>> &members);
 
+//! Create a submodule of ``parent`` and register it as ``pylib.<name>``.
+//!
+//! Creates the module, attaches it to the parent under \p name, publishes it in
+//! ``sys.modules`` so ``import pylib.<name>`` works, and sets ``__path__`` so it
+//! behaves like a package. Returns a borrowed reference owned by \p parent, or
+//! nullptr with an exception set.
+PyObject *add_submodule(PyObject *parent, const char *name, PyModuleDef *def);
+
+//! Instantiate \p spec and add it to \p module under \p name.
+//!
+//! On success the module owns the type. Returns 0 on success, -1 with an
+//! exception set on failure.
+int add_type(PyObject *module, const char *name, PyType_Spec *spec);
+
+//! Build an IntEnum from \p members and add it to \p module under \p name.
+//! Returns 0 on success, -1 with an exception set on failure.
+int add_int_enum(PyObject *module, const char *name,
+                 const std::span<std::pair<std::string, uint32_t>> &members);
+
+//! Build an IntFlag from \p members and add it to \p module under \p name.
+//! Returns 0 on success, -1 with an exception set on failure.
+int add_int_flags(PyObject *module, const char *name,
+                  const std::span<std::pair<std::string, uint32_t>> &members);
+
 
 class PyROBytesView {
 public:

@@ -12,12 +12,69 @@
 
 PyObject *py_load_vtf_texture(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
+PyObject *py_load_vtf_texture_frames(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+
 
 PyDoc_STRVAR(py_load_vtf_texture_fn_doc,
-             "load_vtf_texture($module, /, input_data)\n"
+             "load_vtf_texture($module, /, input_data, frame=0, face=0, mip=0)\n"
              "--\n"
              "\n"
-             "Load VTF texture from input data.\n"
+             "Load VTF texture from input data, converted to RGBA8888 (or\n"
+             "RGBA32323232F for float formats).\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "input_data : bytes\n"
+             "    Raw .vtf file contents.\n"
+             "frame : int, optional\n"
+             "    Animation frame to decode; defaults to 0. Use ``VTFFile.frame_count``\n"
+             "    to enumerate the frames of an animated texture.\n"
+             "face : int, optional\n"
+             "    Cubemap face to decode; defaults to 0.\n"
+             "mip : int, optional\n"
+             "    Mipmap level to decode; defaults to 0 (full resolution).\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "tuple\n"
+             "    ``(pixel_data, width, height, is_float)``, where width/height are\n"
+             "    those of the requested mip level.\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "IndexError\n"
+             "    If frame, face or mip is out of range for this texture.\n"
+);
+
+PyDoc_STRVAR(py_load_vtf_texture_frames_fn_doc,
+             "load_vtf_texture_frames($module, /, input_data, face=0, mip=0)\n"
+             "--\n"
+             "\n"
+             "Load every animation frame of a VTF texture in one pass.\n"
+             "\n"
+             "Equivalent to calling ``load_vtf_texture`` once per frame, but parses\n"
+             "the file a single time instead of re-parsing it for each frame.\n"
+             "\n"
+             "Parameters\n"
+             "----------\n"
+             "input_data : bytes\n"
+             "    Raw .vtf file contents.\n"
+             "face : int, optional\n"
+             "    Cubemap face to decode; defaults to 0.\n"
+             "mip : int, optional\n"
+             "    Mipmap level to decode; defaults to 0 (full resolution).\n"
+             "\n"
+             "Returns\n"
+             "-------\n"
+             "tuple\n"
+             "    ``(frames, width, height, is_float)`` where ``frames`` is a list of\n"
+             "    bytes objects, one per animation frame, each already converted to\n"
+             "    RGBA8888 (or RGBA32323232F for float formats).\n"
+             "\n"
+             "Raises\n"
+             "------\n"
+             "IndexError\n"
+             "    If face or mip is out of range for this texture.\n"
 );
 
 PyDoc_STRVAR(mod_version_doc,
@@ -30,9 +87,10 @@ PyDoc_STRVAR(mod_version_doc,
 PyObject *mod_get_version(PyObject *, PyObject *const *, Py_ssize_t);
 
 static PyMethodDef vtf_methods[] = {
-        {"load_vtf_texture", CPF(py_load_vtf_texture), METH_FASTCALL, py_load_vtf_texture_fn_doc},
-        {"version",          CPF(mod_get_version),     METH_FASTCALL, mod_version_doc},
-        {nullptr, nullptr, 0,                                         nullptr}
+        {"load_vtf_texture",        CPF(py_load_vtf_texture),        METH_FASTCALL, py_load_vtf_texture_fn_doc},
+        {"load_vtf_texture_frames", CPF(py_load_vtf_texture_frames), METH_FASTCALL, py_load_vtf_texture_frames_fn_doc},
+        {"version",                 CPF(mod_get_version),            METH_FASTCALL, mod_version_doc},
+        {nullptr, nullptr,                                           0, nullptr}
 };
 
 
@@ -45,30 +103,12 @@ static struct PyModuleDef vtf_module_def = {
 };
 
 static PyObject *VTFModule_Init(PyObject *parent_module) {
-    PyObject *module = PyModule_Create(&vtf_module_def);
-    if (!module) {
-        Py_DECREF(module);
+    PyObject *module = add_submodule(parent_module, "vtf", &vtf_module_def);
+    if (!module)
         return nullptr;
-    }
 
-    if (PyModule_AddObject(parent_module, "vtf", module) < 0) {
-        Py_DECREF(module);
+    if (add_type(module, "VTFFile", &vtf_class_spec) < 0)
         return nullptr;
-    }
-    Py_INCREF(module);
-
-    PyObject *modules = PyImport_GetModuleDict();
-    if (PyDict_SetItemString(modules, "pylib.vtf", module) < 0) {
-        Py_DECREF(module);
-        return nullptr;
-    }
-
-    PyObject *t = PyType_FromSpec(&vtf_class_spec);
-    if (!t) return nullptr;
-    if (PyModule_AddObject(module, "VTFFile", t) < 0) {
-        Py_DECREF(t);
-        return nullptr;
-    }
 
     std::vector<std::pair<std::string, uint32_t>> image_format_members = {
             {"RGBA8888",          IMAGE_FORMAT_RGBA8888},
@@ -111,14 +151,8 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
             {"ATI2N",             IMAGE_FORMAT_ATI2N},
             {"ATI1N",             IMAGE_FORMAT_ATI1N}
     };
-    PyObject *my_enum;
-    my_enum = create_int_enum("ImageFormat", image_format_members);
-    if (!my_enum) return nullptr;
-
-    if (PyModule_AddObject(module, "ImageFormat", my_enum) < 0) {
-        Py_DECREF(my_enum);
+    if (add_int_enum(module, "ImageFormat", image_format_members) < 0)
         return nullptr;
-    }
 
     std::vector<std::pair<std::string, uint32_t>> mip_filter_members = {
             {"POINT",     MIPMAP_FILTER_POINT},
@@ -136,13 +170,10 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
             {"BLACKMAN",  MIPMAP_FILTER_BLACKMAN},
             {"KAISER",    MIPMAP_FILTER_KAISER}
     };
-
-    my_enum = create_int_enum("MipFilter", mip_filter_members);
-    if (PyModule_AddObject(module, "MipFilter", my_enum) < 0) {
-        Py_DECREF(my_enum);
+    if (add_int_enum(module, "MipFilter", mip_filter_members) < 0)
         return nullptr;
-    }
-    std::vector<std::pair<std::string, uint32_t>> constants{
+
+    std::vector<std::pair<std::string, uint32_t>> sharpen_filter_members{
             {"NONE",           SHARPEN_FILTER_NONE},
             {"NEGATIVE",       SHARPEN_FILTER_NEGATIVE},
             {"LIGHTER",        SHARPEN_FILTER_LIGHTER},
@@ -163,13 +194,10 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
             {"XSHARPEN",       SHARPEN_FILTER_XSHARPEN},
             {"WARPSHARP",      SHARPEN_FILTER_WARPSHARP},
     };
-
-    my_enum = create_int_enum("SharpenFilter", constants);
-    if (PyModule_AddObject(module, "SharpenFilter", my_enum) < 0) {
-        Py_DECREF(my_enum);
+    if (add_int_enum(module, "SharpenFilter", sharpen_filter_members) < 0)
         return nullptr;
-    }
-    std::vector<std::pair<std::string, uint32_t>> flags{
+
+    std::vector<std::pair<std::string, uint32_t>> texture_flags{
             {"POINTSAMPLE",                              TEXTUREFLAGS_POINTSAMPLE},
             {"TRILINEAR",                                TEXTUREFLAGS_TRILINEAR},
             {"CLAMPS",                                   TEXTUREFLAGS_CLAMPS},
@@ -195,23 +223,9 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
             {"SSBUMP",                                   TEXTUREFLAGS_SSBUMP},
             {"BORDER",                                   TEXTUREFLAGS_BORDER},
     };
-
-    my_enum = create_int_flags("TextureFlags", flags);
-    if (PyModule_AddObject(module, "TextureFlags", my_enum) < 0) {
-        Py_DECREF(my_enum);
+    if (add_int_flags(module, "TextureFlags", texture_flags) < 0)
         return nullptr;
-    }
 
-    // Set __path__ attribute for the submodule
-    PyObject *path_list = Py_BuildValue("[s]", "pylib/vtf");
-    if (path_list) {
-        Py_INCREF(path_list);
-        if (PyModule_AddObject(module, "__path__", path_list) < 0) {
-            Py_DECREF(path_list);
-            Py_DECREF(module);
-            return nullptr;
-        }
-    }
     return module;
 }
 

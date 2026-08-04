@@ -148,6 +148,6 @@ PyObject* LZ4ChainDecoder_new(PyTypeObject* type, PyObject* args, PyObject* kwds
 void LZ4ChainDecoder_dealloc(LZ4ChainDecoderObject* self) {
     if (self->output_buffer) free(self->output_buffer);
     if (self->stream_state) LZ4_freeStreamDecode(self->stream_state);
-    auto tp_free = (freefunc) PyType_GetSlot(Py_TYPE(self), Py_tp_free);
+    auto tp_free = (freefunc) PyType_GetSlot(Py_TYPE((PyObject *) self), Py_tp_free);
     tp_free((PyObject *) self);
 }
