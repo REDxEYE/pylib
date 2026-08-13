@@ -4,8 +4,9 @@
 #include <Python.h>
 #include "utils/utils.h"
 #include "VTFFile.h"
+#include "Error.h"
 
-void set_vtf_error(VTFLib::Diagnostics::CError &error);
+void set_vtf_error(const VTFLib::Diagnostics::CError &error);
 
 struct VTFObject {
     PyObject_HEAD

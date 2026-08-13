@@ -6,11 +6,9 @@
 #include "utils/vtf_utils.h"
 #include "VTFWrapper.h"
 
-using namespace VTFLib;
 
-void set_vtf_error(VTFLib::Diagnostics::CError &error) {
-    const vlChar *msg = error.Get();
-    if (msg && *msg) {
+void set_vtf_error(const VTFLib::Diagnostics::CError &error) {
+    if (const vlChar *msg = error.Get(); msg && *msg) {
         PyErr_SetString(PyExc_RuntimeError, msg);
     } else {
         PyErr_SetString(PyExc_RuntimeError, "VTFLib error");
@@ -95,7 +93,8 @@ PyObject *VTF_save(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
 PyObject *VTF_to_bytes(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
     (void) args;
     (void) nargs;
-    vlUInt guess = self->file->GetSize();
+    VTFLib::Diagnostics::CError error;
+    vlUInt guess = self->file->GetSize(error);
     if (guess == 0) guess = 16 * 1024;
 
     // A std::vector, not a `thread_local` raw pointer: the previous version
@@ -103,18 +102,17 @@ PyObject *VTF_to_bytes(VTFObject *self, PyObject *const *args, Py_ssize_t nargs)
     // texture wrote past the original allocation -- and the buffer was deleted on
     // the way out, leaving the next call writing into freed memory.
     std::vector<uint8_t> buffer(guess);
-    vlSize written = 0;
-    VTFLib::Diagnostics::CError error;
-    if (!self->file->Save(buffer.data(), (vlSize) buffer.size(), written, error)) {
+    uint32_t written = 0;
+    if (!self->file->Save(buffer.data(), buffer.size(), written, error)) {
         // Buffer was too small: retry once at the size VTFLib reported.
-        if (written <= (vlSize) buffer.size()) {
+        if (written <= buffer.size()) {
             set_vtf_error(error);
             return nullptr;
         }
         buffer.assign(written, 0);
-        vlSize written_retry = 0;
+        uint32_t written_retry = 0;
         VTFLib::Diagnostics::CError retry_error;
-        if (!self->file->Save(buffer.data(), (vlSize) buffer.size(), written_retry, retry_error)) {
+        if (!self->file->Save(buffer.data(), buffer.size(), written_retry, retry_error)) {
             set_vtf_error(retry_error);
             return nullptr;
         }
@@ -167,9 +165,9 @@ PyObject *VTF_set_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs)
     Py_ssize_t blen = PyBytes_Size(args[4]);
 
     vlUInt w = 0, h = 0, d = 0;
-    CVTFFile::ComputeMipmapDimensions(self->file->GetWidth(), self->file->GetHeight(), self->file->GetDepth(),
-                                      mip, w, h, d);
-    vlUInt need = CVTFFile::ComputeMipmapSize(w, h, d, mip, self->file->GetFormat());
+    VTFLib::CVTFFile::ComputeMipmapDimensions(self->file->GetWidth(), self->file->GetHeight(), self->file->GetDepth(),
+                                              mip, w, h, d);
+    vlUInt need = VTFLib::CVTFFile::ComputeMipmapSize(w, h, d, mip, self->file->GetFormat());
     if ((Py_ssize_t) need != blen) {
         PyErr_Format(PyExc_ValueError, "data length %zd does not match required %u for this level", blen, need);
         return nullptr;
@@ -195,9 +193,9 @@ PyObject *VTF_get_data(VTFObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
 
     vlUInt w = 0, h = 0, d = 0;
-    CVTFFile::ComputeMipmapDimensions(self->file->GetWidth(), self->file->GetHeight(), self->file->GetDepth(),
-                                      mip, w, h, d);
-    vlUInt size = CVTFFile::ComputeMipmapSize(w, h, d, mip, self->file->GetFormat());
+    VTFLib::CVTFFile::ComputeMipmapDimensions(self->file->GetWidth(), self->file->GetHeight(), self->file->GetDepth(),
+                                              mip, w, h, d);
+    vlUInt size = VTFLib::CVTFFile::ComputeMipmapSize(w, h, d, mip, self->file->GetFormat());
     return PyBytes_FromStringAndSize((const char *) p, (Py_ssize_t) size);
 }
 
@@ -243,9 +241,7 @@ PyObject *VTF_set_flags(VTFObject *self, PyObject *const *args, Py_ssize_t nargs
 
 PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
     VTFMipmapFilter mf = MIPMAP_FILTER_BOX;
-    VTFSharpenFilter sf = SHARPEN_FILTER_NONE;
     if (nargs > 0) mf = (VTFMipmapFilter) PyLong_AsUnsignedLong(args[0]);
-    if (nargs > 1) sf = (VTFSharpenFilter) PyLong_AsUnsignedLong(args[1]);
 
     stbir_filter filter = STBIR_FILTER_BOX;
     switch (mf) {
@@ -428,7 +424,7 @@ PyObject *VTF_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
     (void) kwargs;
     VTFObject *self = (VTFObject *) PyType_GenericNew(type, nullptr, nullptr);
     if (!self) return nullptr;
-    self->file = new CVTFFile();
+    self->file = new VTFLib::CVTFFile();
     if (!self->file) {
         Py_DECREF(self);
         PyErr_NoMemory();
@@ -565,7 +561,7 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
         set_vtf_error(error);
         return nullptr;
     }
-    if (!vlImageComputeReflectivity(self->file, &error)) {
+    if (!self->file->ComputeReflectivity(error)) {
         set_vtf_error(error);
         return nullptr;
     }

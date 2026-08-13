@@ -3,10 +3,13 @@
 
 #include <Python.h>
 #include "utils/utils.h"
+#include "classes/smd_class.h"
 
 PyObject *py_decode_vertex_buffer(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
 PyObject *py_decode_index_buffer(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
+
+PyObject *py_parse_smd(PyObject *self, PyObject *const *args, Py_ssize_t nargs);
 
 PyDoc_STRVAR(py_decode_vertex_buffer_fn_doc,
              "decode_vertex_buffer($module, /, input_data, vertex_size, vertex_count)\n"
@@ -20,24 +23,45 @@ PyDoc_STRVAR(py_decode_index_buffer_fn_doc,
              "\n"
              "Decode compressed index buffer.\n"
 );
+PyDoc_STRVAR(py_parse_smd_fn_doc,
+             "parse_smd($module, /, input_data)\n"
+             "--\n"
+             "\n"
+             "Parse SMD file.\n"
+);
 
 static PyMethodDef mesh_methods[] = {
-        {"decode_vertex_buffer", CPF(py_decode_vertex_buffer), METH_FASTCALL, py_decode_vertex_buffer_fn_doc},
-        {"decode_index_buffer",  CPF(py_decode_index_buffer),  METH_FASTCALL, py_decode_index_buffer_fn_doc},
-
-        {nullptr,                nullptr, 0,                                  nullptr}
+    {"decode_vertex_buffer", CPF(py_decode_vertex_buffer), METH_FASTCALL, py_decode_vertex_buffer_fn_doc},
+    {"decode_index_buffer", CPF(py_decode_index_buffer), METH_FASTCALL, py_decode_index_buffer_fn_doc},
+    {nullptr, nullptr, 0, nullptr}
 };
 
 static struct PyModuleDef mesh_module_def = {
-        PyModuleDef_HEAD_INIT,
-        "mesh",
-        "SourceIO mesh module",
-        -1,
-        mesh_methods
+    PyModuleDef_HEAD_INIT,
+    "mesh",
+    "SourceIO mesh module",
+    -1,
+    mesh_methods
 };
 
 static PyObject *MeshModule_Init(PyObject *parent_module) {
-    return add_submodule(parent_module, "mesh", &mesh_module_def);
+    PyObject* mod =  add_submodule(parent_module, "mesh", &mesh_module_def);
+    if (!mod)
+        return nullptr;
+
+    if (add_type(mod, "SMDModel", &smd::model::class_spec) < 0)
+        return nullptr;
+    if (add_type(mod, "SMDNode", &smd::node::class_spec) < 0)
+        return nullptr;
+    if (add_type(mod, "SMDSkeleton", &smd::skeleton::class_spec) < 0)
+        return nullptr;
+    if (add_type(mod, "SMDBoneDef", &smd::bonedef::class_spec) < 0)
+        return nullptr;
+    if (add_type(mod, "SMDTriangle", &smd::triangle::class_spec) < 0)
+        return nullptr;
+    if (add_type(mod, "SMDVertex", &smd::vertex::class_spec) < 0)
+        return nullptr;
+    return mod;
 }
 
 #endif //PYLIB_MESH_MODULE_H

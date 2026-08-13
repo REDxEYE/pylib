@@ -173,30 +173,6 @@ static PyObject *VTFModule_Init(PyObject *parent_module) {
     if (add_int_enum(module, "MipFilter", mip_filter_members) < 0)
         return nullptr;
 
-    std::vector<std::pair<std::string, uint32_t>> sharpen_filter_members{
-            {"NONE",           SHARPEN_FILTER_NONE},
-            {"NEGATIVE",       SHARPEN_FILTER_NEGATIVE},
-            {"LIGHTER",        SHARPEN_FILTER_LIGHTER},
-            {"DARKER",         SHARPEN_FILTER_DARKER},
-            {"CONTRASTMORE",   SHARPEN_FILTER_CONTRASTMORE},
-            {"CONTRASTLESS",   SHARPEN_FILTER_CONTRASTLESS},
-            {"SMOOTHEN",       SHARPEN_FILTER_SMOOTHEN},
-            {"SHARPENSOFT",    SHARPEN_FILTER_SHARPENSOFT},
-            {"SHARPENMEDIUM",  SHARPEN_FILTER_SHARPENMEDIUM},
-            {"SHARPENSTRONG",  SHARPEN_FILTER_SHARPENSTRONG},
-            {"FINDEDGES",      SHARPEN_FILTER_FINDEDGES},
-            {"CONTOUR",        SHARPEN_FILTER_CONTOUR},
-            {"EDGEDETECT",     SHARPEN_FILTER_EDGEDETECT},
-            {"EDGEDETECTSOFT", SHARPEN_FILTER_EDGEDETECTSOFT},
-            {"EMBOSS",         SHARPEN_FILTER_EMBOSS},
-            {"MEANREMOVAL",    SHARPEN_FILTER_MEANREMOVAL},
-            {"UNSHARP",        SHARPEN_FILTER_UNSHARP},
-            {"XSHARPEN",       SHARPEN_FILTER_XSHARPEN},
-            {"WARPSHARP",      SHARPEN_FILTER_WARPSHARP},
-    };
-    if (add_int_enum(module, "SharpenFilter", sharpen_filter_members) < 0)
-        return nullptr;
-
     std::vector<std::pair<std::string, uint32_t>> texture_flags{
             {"POINTSAMPLE",                              TEXTUREFLAGS_POINTSAMPLE},
             {"TRILINEAR",                                TEXTUREFLAGS_TRILINEAR},

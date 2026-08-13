@@ -5,6 +5,7 @@
 #include "modules/mesh_module.h"
 #include "meshoptimizer.h"
 #include <Python.h>
+#include <sstream>
 
 
 PyObject *py_decode_vertex_buffer(PyObject *self, PyObject *const *args, Py_ssize_t nargs) {

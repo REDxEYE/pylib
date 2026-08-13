@@ -5,6 +5,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(CheckCXXCompilerFlag)
 
+include(cmake/dependencies.cmake)
+
+
 function(target_add_flags_if_supported tgt scope)
     foreach(flag IN LISTS ARGN)
         # Generate a unique variable per-flag/compiler/arch to cache the test
@@ -23,18 +26,9 @@ find_package(
         COMPONENTS Interpreter Development.SABIModule
         REQUIRED
 )
-add_subdirectory(ext/zstd/build/cmake)
-add_subdirectory(ext/lz4/build/cmake)
-add_subdirectory(ext/meshoptimizer)
-set(TINYEXR_BUILD_SAMPLE OFF)
-add_subdirectory(ext/tinyexr)
-set(USE_LIBTXC_DXTN ON)
-set(BUILD_SHARED_LIBS OFF)
-add_subdirectory(ext/vtflib)
 
 get_target_property(SABI_DEBUG Python3::SABIModule IMPORTED_IMPLIB_DEBUG)
 get_target_property(SABI_REL Python3::SABIModule IMPORTED_IMPLIB_RELEASE)
-
 set_target_properties(Python3::SABIModule PROPERTIES MAP_IMPORTED_CONFIG_DEBUG ";RELEASE")
 
 message(STATUS "Python include dir: ${Python3_INCLUDE_DIRS}")
@@ -45,22 +39,21 @@ message(STATUS "Python interpreter: ${Python3_EXECUTABLE}")
 message(STATUS "SABI Debug lib:   ${SABI_DEBUG}")
 message(STATUS "SABI Release lib: ${SABI_REL}")
 
-add_library(stbiw_obj OBJECT src/stb_impl.cpp ext/tinyexr/deps/miniz/miniz.c)
-target_include_directories(stbiw_obj PRIVATE ./include ext/tinyexr ext/tinyexr/deps/miniz)
+add_library(stbiw_obj STATIC src/stb_impl.cpp)
+target_include_directories(stbiw_obj PRIVATE ./include)
 set_target_properties(stbiw_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 
-else ()
+if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     if (MSVC)
         # Always-safe opt flags on MSVC
         target_add_flags_if_supported(stbiw_obj PRIVATE /O2 /GL /Oi /Ot /fp:precise /GS- /Gy /Gw)
 
         # Only try AVX2 on x86/x64 MSVC toolsets
         #if (CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x86|i.86")
-        #    target_add_flags_if_supported(stbiw_obj PRIVATE /arch:AVX2)
-        #endif()
+        #    target_add_flags_if_supported(stbiw_obj PRIVATE /arch:SSE2)
+        #endif ()
 
-    else()
+    else ()
         # General opts for Clang/GCC
         target_add_flags_if_supported(stbiw_obj PRIVATE
                 -O3 -fomit-frame-pointer -funroll-loops -fstrict-aliasing
@@ -69,9 +62,9 @@ else ()
         # LTO differs by platform/compiler; try thin-LTO on Apple Clang
         if (APPLE)
             target_add_flags_if_supported(stbiw_obj PRIVATE -flto=thin)
-        else()
+        else ()
             target_add_flags_if_supported(stbiw_obj PRIVATE -flto)
-        endif()
+        endif ()
 
         # CPU-specific flags by architecture
         #if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|x86|i.86")
@@ -82,8 +75,8 @@ else ()
         #    # Apple/ARM: NEON is default; avoid x86 flags. Optional: tune for host CPU.
         #    target_add_flags_if_supported(stbiw_obj PRIVATE -mcpu=native)
         #    # (You usually don't need -mfpu=neon on Apple/ARM; it’s implied.)
-        #endif()
-    endif()
+        #endif ()
+    endif ()
 endif ()
 
 
@@ -103,11 +96,13 @@ Python3_add_library(pylib MODULE USE_SABI 3.11 WITH_SOABI
         src/lz4_chaindecoder_class.cpp
         src/lz4_chainencoder_class.cpp
         src/vpk_class.cpp
+        src/smd_class.cpp
+        src/smd_parser.cpp
         src/etc.cpp
 )
 target_compile_definitions(pylib PRIVATE BCDEC_BC4BC5_PRECISE)
 set_target_properties(pylib PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(pylib PRIVATE Python3::SABIModule libzstd lz4_static meshoptimizer VTFLib20 stbiw_obj)
+target_link_libraries(pylib PRIVATE Python3::SABIModule tinyexr libzstd lz4_static meshoptimizer vtflib_static stbiw_obj)
 if (WIN32)
     target_link_libraries(pylib PRIVATE Shlwapi)
 endif ()
