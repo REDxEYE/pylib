@@ -217,7 +217,31 @@ PyObject *VTF_get_flag(VTFObject *self, PyObject *const *args, Py_ssize_t nargs)
     }
     vlUInt flag = (vlUInt) PyLong_AsUnsignedLong(args[0]);
     vlBool b = self->file->GetFlag((VTFImageFlag) flag);
-    if (b) Py_RETURN_TRUE; else Py_RETURN_FALSE;
+    if (b)
+        Py_RETURN_TRUE;
+    else
+        Py_RETURN_FALSE;
+}
+
+PyObject *VTF_get_version(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
+    PyObject *major = PyLong_FromUnsignedLong(self->file->GetMajorVersion());
+    PyObject *minor = PyLong_FromUnsignedLong(self->file->GetMinorVersion());
+    return PyTuple_Pack(2, major, minor);
+}
+
+PyObject *VTF_set_version(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
+    if (nargs != 2) {
+        PyErr_SetString(PyExc_TypeError, "set_version(major:int, minor:int)");
+        return nullptr;
+    }
+
+    const uint32_t major = PyLong_AsUnsignedLong(args[0]);
+    const uint32_t minor = PyLong_AsUnsignedLong(args[1]);
+    if (VTFLib::Diagnostics::CError error; !self->file->SetVersion(major, minor, error)) {
+        PyErr_SetString(PyExc_ValueError, error.Get());
+        return nullptr;
+    }
+    Py_RETURN_NONE;
 }
 
 PyObject *VTF_flags(VTFObject *self, PyObject *const *args, Py_ssize_t nargs) {
@@ -245,7 +269,6 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
 
     stbir_filter filter = STBIR_FILTER_BOX;
     switch (mf) {
-
         case MIPMAP_FILTER_POINT:
             filter = STBIR_FILTER_POINT_SAMPLE;
             break;
@@ -290,18 +313,16 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
     vlUInt height = self->file->GetHeight();
     uint32_t mip_count = VTFLib::CVTFFile::ComputeMipmapCount(width, height, slice_count);
     bool is_float = is_float_storage(original_format);
-    auto intermediate_format = is_float ? VTFImageFormat::IMAGE_FORMAT_RGBA32323232F
-                                        : VTFImageFormat::IMAGE_FORMAT_RGBA8888;
+    auto intermediate_format = is_float
+                                   ? VTFImageFormat::IMAGE_FORMAT_RGBA32323232F
+                                   : VTFImageFormat::IMAGE_FORMAT_RGBA8888;
 
     VTFLib::Diagnostics::CError error;
-    // Owning containers throughout: the previous version paired `new[]` with
-    // `free()` (undefined behaviour), leaked `rgba_buffer` on every path, and
-    // returned early without releasing anything.
     for (int face = 0; face < face_count; ++face) {
         for (int frame = 0; frame < frame_count; ++frame) {
             auto orig_data = self->file->GetData(frame, face, 0, 0);
             std::vector<uint8_t> rgba_buffer(
-                    VTFLib::CVTFFile::ComputeImageSize(width, height, 1, intermediate_format));
+                VTFLib::CVTFFile::ComputeImageSize(width, height, 1, intermediate_format));
             if (!VTFLib::CVTFFile::Convert(orig_data, rgba_buffer.data(), width, height, original_format,
                                            intermediate_format, error)) {
                 set_vtf_error(error);
@@ -315,20 +336,20 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
                 VTFLib::CVTFFile::ComputeMipmapDimensions(width, height, 1, mip, mip_width, mip_height, mip_depth);
                 // stbir_resize mallocs its own output, so it must be free()d.
                 auto *resized_buffer = (uint8_t *) stbir_resize(
-                        rgba_buffer.data(),
-                        (int) width, (int) height, (int) (width * 4),
-                        nullptr,
-                        (int) mip_width, (int) mip_height,
-                        (int) (mip_width * 4),
-                        STBIR_RGBA,
-                        is_float ? STBIR_TYPE_FLOAT : STBIR_TYPE_UINT8,
-                        STBIR_EDGE_CLAMP,
-                        filter);
+                    rgba_buffer.data(),
+                    static_cast<int>(width), static_cast<int>(height), static_cast<int>(width * 4),
+                    nullptr,
+                    static_cast<int>(mip_width), static_cast<int>(mip_height),
+                    static_cast<int>(mip_width * 4),
+                    STBIR_RGBA,
+                    is_float ? STBIR_TYPE_FLOAT : STBIR_TYPE_UINT8,
+                    STBIR_EDGE_CLAMP,
+                    filter);
                 if (!resized_buffer) {
                     PyErr_SetString(PyExc_RuntimeError, "Failed to resize image data for mipmap generation");
                     return nullptr;
                 }
-                auto mip_size = VTFLib::CVTFFile::ComputeMipmapSize(width, height, 0, mip, original_format);
+                const auto mip_size = VTFLib::CVTFFile::ComputeMipmapSize(width, height, 0, mip, original_format);
                 std::vector<uint8_t> mip_buffer(mip_size);
                 VTFLib::Diagnostics::CError mip_error;
                 if (!VTFLib::CVTFFile::Convert(resized_buffer, mip_buffer.data(), mip_width, mip_height,
@@ -440,12 +461,12 @@ void VTF_dealloc(VTFObject *self) {
 
 PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs) {
     static const char *kwlist[] = {
-            "data", "width", "height",
-            "frames", "faces", "slices",
-            "src_image_format", "dst_image_format", "filter_mode", "flags",
-            "generate_mipmaps", "generate_thumbnail",
-            "resize_to_pow2", "resolution_limit_x", "resolution_limit_y",
-            nullptr
+        "data", "width", "height",
+        "frames", "faces", "slices",
+        "src_image_format", "dst_image_format", "filter_mode", "flags",
+        "generate_mipmaps", "generate_thumbnail",
+        "resize_to_pow2", "resolution_limit_x", "resolution_limit_y",
+        nullptr
     };
 
     PyObject *data_buf = nullptr;
@@ -470,18 +491,18 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     Py_ssize_t resolution_limit_y = 4096;
 
     if (!PyArg_ParseTupleAndKeywords(
-            args, kwargs,
-            "Onn|"      // data, width, height
-            "nnn"       // frames, faces, slices
-            "kkkk"      // src_image_format, dst_image_format, filter_mode, flags
-            "pp"        // generate_mipmaps, generate_thumbnail
-            "nnn",      // resize_to_pow2, resolution_limit_x, resolution_limit_y
-            const_cast<char **>(kwlist),
-            &data_buf, &width, &height,
-            &frames, &faces, &slices,
-            &src_image_format, &dst_image_format, &filter_mode, &flags,
-            &generate_mipmaps, &generate_thumbnail,
-            &resize_to_pow2, &resolution_limit_x, &resolution_limit_y)) {
+        args, kwargs,
+        "Onn|" // data, width, height
+        "nnn" // frames, faces, slices
+        "kkkk" // src_image_format, dst_image_format, filter_mode, flags
+        "pp" // generate_mipmaps, generate_thumbnail
+        "nnn", // resize_to_pow2, resolution_limit_x, resolution_limit_y
+        const_cast<char **>(kwlist),
+        &data_buf, &width, &height,
+        &frames, &faces, &slices,
+        &src_image_format, &dst_image_format, &filter_mode, &flags,
+        &generate_mipmaps, &generate_thumbnail,
+        &resize_to_pow2, &resolution_limit_x, &resolution_limit_y)) {
         return nullptr;
     }
     if (!PyBytes_Check(data_buf)) {
@@ -536,9 +557,9 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     // any call with more than one frame/face/slice read past it.
     const Py_ssize_t image_count = frames * faces * slices;
     const size_t src_image_size = VTFLib::CVTFFile::ComputeImageSize(
-            width, height, 1, (tagVTFImageFormat) src_image_format);
+        width, height, 1, (tagVTFImageFormat) src_image_format);
     const size_t rgba_image_size = VTFLib::CVTFFile::ComputeImageSize(
-            width, height, 1, IMAGE_FORMAT_RGBA8888);
+        width, height, 1, IMAGE_FORMAT_RGBA8888);
     if (data.size() < src_image_size * (size_t) image_count) {
         return PyErr_Format(PyExc_ValueError,
                             "data length (%zd) is too small for %zd image(s) of %zu bytes",

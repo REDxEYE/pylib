@@ -109,6 +109,18 @@ PyDoc_STRVAR(VTF_get_flag_doc,
              "\n"
              "Return True if the given flag is set.");
 
+PyDoc_STRVAR(VTF_get_version_doc,
+            "get_version($self)\n"
+            "--\n"
+            "\n"
+            "Return tuple of version");
+
+PyDoc_STRVAR(VTF_set_version_doc,
+            "set_version($self, /, major, minor)\n"
+            "--\n"
+            "\n"
+            "Set version of the VTF file");
+
 PyDoc_STRVAR(VTF_generate_mipmaps_doc,
              "generate_mipmaps($self, /, mipmap_filter=MipFilter.BOX, sharpen_filter=SharpenFilter.NONE)\n"
              "--\n"
@@ -190,6 +202,10 @@ PyObject *VTF_set_flag(VTFObject *self, PyObject *const *args, Py_ssize_t nargs)
 
 PyObject *VTF_get_flag(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
 
+PyObject *VTF_get_version(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
+
+PyObject *VTF_set_version(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
+
 PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
 
 PyObject *VTF_set_reflectivity(VTFObject *self, PyObject *const *args, Py_ssize_t nargs);
@@ -207,6 +223,8 @@ static PyMethodDef vtf_class_methods[] = {
         {"get_data",             CPF(VTF_get_data),             METH_FASTCALL, VTF_get_data_doc},
         {"set_flag",             CPF(VTF_set_flag),             METH_FASTCALL, VTF_set_flag_doc},
         {"get_flag",             CPF(VTF_get_flag),             METH_FASTCALL, VTF_get_flag_doc},
+        {"set_version",          CPF(VTF_set_version),          METH_FASTCALL, VTF_set_version_doc},
+        {"get_version",          CPF(VTF_get_version),          METH_FASTCALL, VTF_get_version_doc},
         {"generate_mipmaps",     CPF(VTF_generate_mipmaps),     METH_FASTCALL, VTF_generate_mipmaps_doc},
         {"set_reflectivity",     CPF(VTF_set_reflectivity),     METH_FASTCALL, VTF_set_reflectivity_doc},
         {"compute_reflectivity", CPF(VTF_compute_reflectivity), METH_FASTCALL, VTF_compute_reflectivity_doc},
