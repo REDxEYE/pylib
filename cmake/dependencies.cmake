@@ -2,6 +2,8 @@ include(FetchContent)
 
 #set(USE_LIBTXC_DXTN ON)
 set(BUILD_SHARED_LIBS OFF)
+set(VTFLIB_BUILD_VTFCMD OFF)
+set(VTFLIB_BUILD_VTFEDIT OFF)
 FetchContent_Declare(
         VTFEdit
         QUIET
