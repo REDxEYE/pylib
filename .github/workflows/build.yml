@@ -11,82 +11,141 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Update submodules
         run: git submodule update --init --recursive
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
+
+      - name: Install dependencies
+        run: |
+          vcpkg install `
+            zlib:x64-windows-static `
+            libpng:x64-windows-static `
+            libjpeg-turbo:x64-windows-static `
+            tiff:x64-windows-static
+
       - name: Configure
-        run: cmake -S . -B build -DPython3_ROOT_DIR=${{ env.pythonLocation }} -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
+        run: |
+          cmake -S . -B build `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows-static `
+            -DPython3_ROOT_DIR="${{ env.pythonLocation }}" `
+            -DUSE_LIBTXC_DXTN=ON `
+            -DBUILD_SHARED_LIBS=OFF
+
       - name: Build
         run: cmake --build build --config Release --target pylib
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-binaries
           path: build/Release/pylib.pyd
 
+
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Update submodules
         run: git submodule update --init --recursive
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake build-essential python3-dev zip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            build-essential \
+            python3-dev \
+            zip \
+            zlib1g-dev \
+            libpng-dev \
+            libjpeg-dev \
+            libtiff-dev
+
       - name: Configure
-        run: cmake -S . -B build -DPython3_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
+        run: |
+          cmake -S . -B build \
+            -DPython3_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
+            -DUSE_LIBTXC_DXTN=ON \
+            -DBUILD_SHARED_LIBS=OFF
+
       - name: Build
         run: cmake --build build --config Release --target pylib
+
       - name: Zip artifacts
         run: zip -j linux-binaries.zip build/pylib.abi3.so
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: linux-binaries
           path: build/pylib.abi3.so
 
+
   build-macos-universal:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Update submodules
         run: git submodule update --init --recursive
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - name: Install CMake
-        run: brew install cmake
+
+      - name: Install dependencies
+        run: |
+          brew install cmake libpng jpeg-turbo libtiff
+
       - name: Build x86_64
         run: |
-          cmake -S . -B build_x86_64 -DCMAKE_OSX_ARCHITECTURES=x86_64 -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
+          cmake -S . -B build_x86_64 \
+            -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+            -DUSE_LIBTXC_DXTN=ON \
+            -DBUILD_SHARED_LIBS=OFF
           cmake --build build_x86_64 --config Release --target pylib
+
       - name: Build arm64
         run: |
-          cmake -S . -B build_arm64 -DCMAKE_OSX_ARCHITECTURES=arm64 -DUSE_LIBTXC_DXTN=ON -DBUILD_SHARED_LIBS=OFF
+          cmake -S . -B build_arm64 \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DUSE_LIBTXC_DXTN=ON \
+            -DBUILD_SHARED_LIBS=OFF
           cmake --build build_arm64 --config Release --target pylib
+
       - name: Create universal binary
         run: |
-          pwd
-          ls -la 
-          ls -la build_x86_64
           mkdir -p build_universal
-          lipo -create ./build_x86_64/pylib.abi3.so ./build_arm64/pylib.abi3.so -output ./build_universal/pylib.abi3.so
+          lipo -create \
+            ./build_x86_64/pylib.abi3.so \
+            ./build_arm64/pylib.abi3.so \
+            -output ./build_universal/pylib.abi3.so
+
       - name: List universal binary
         run: lipo -info ./build_universal/pylib.abi3.so
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: macos-binaries
           path: ./build_universal/pylib.abi3.so
+
 
   build-linux-gcc12:
     runs-on: ubuntu-22.04
@@ -110,7 +169,11 @@ jobs:
             python3-dev \
             zip \
             gcc-12 \
-            g++-12
+            g++-12 \
+            zlib1g-dev \
+            libpng-dev \
+            libjpeg-dev \
+            libtiff-dev
 
       - name: Configure with GCC 12
         run: |
