@@ -38,9 +38,10 @@ PyObject *add_submodule(PyObject *parent, const char *name, PyModuleDef *def);
 
 //! Instantiate \p spec and add it to \p module under \p name.
 //!
-//! On success the module owns the type. Returns 0 on success, -1 with an
-//! exception set on failure.
-int add_type(PyObject *module, const char *name, PyType_Spec *spec);
+//! On success the module owns the type. If \p out is given, it also receives a
+//! strong reference for C code that allocates instances directly. Returns 0 on
+//! success, -1 with an exception set on failure.
+int add_type(PyObject *module, const char *name, PyType_Spec *spec, PyTypeObject **out = nullptr);
 
 //! Build an IntEnum from \p members and add it to \p module under \p name.
 //! Returns 0 on success, -1 with an exception set on failure.
@@ -62,7 +63,7 @@ public:
     PyROBytesView(const PyROBytesView&) = delete;
     PyROBytesView& operator=(const PyROBytesView&) = delete;
 
-    inline PyROBytesView(PyROBytesView&& other) noexcept;
+    PyROBytesView(PyROBytesView&& other) noexcept;
 
     PyROBytesView& operator=(PyROBytesView&& other) noexcept;
 

@@ -31,10 +31,19 @@ PyMODINIT_FUNC PyInit_pylib(void) {
     if (!root)
         return nullptr;
 
-    PyObject *path_list = Py_BuildValue("[s]", "pylib");
-    if (path_list) {
-        PyModule_AddObject(root, "__path__", path_list);
-        Py_DECREF(path_list);
+    // An empty __path__ makes `pylib` a package; the submodules are registered
+    // in sys.modules directly, so no directory needs to be searched.
+    PyObject *path_list = PyList_New(0);
+    if (!path_list) {
+        Py_DECREF(root);
+        return nullptr;
+    }
+    // AddObjectRef does not steal, so our reference is always ours to drop.
+    int path_failed = PyModule_AddObjectRef(root, "__path__", path_list) < 0;
+    Py_DECREF(path_list);
+    if (path_failed) {
+        Py_DECREF(root);
+        return nullptr;
     }
 
     if(!CompressionModule_Init(root)){
@@ -55,10 +64,8 @@ PyMODINIT_FUNC PyInit_pylib(void) {
         return nullptr;
     }
 
-    PyObject* t = PyType_FromSpec(&VPKFile_class_spec);
-    if (!t) return nullptr;
-    if (PyModule_AddObject(root, "VPKFile", t) < 0) {
-        Py_DECREF(t);
+    if (VPK_InitTypes(root) < 0) {
+        Py_DECREF(root);
         return nullptr;
     }
 

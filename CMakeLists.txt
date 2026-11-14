@@ -43,40 +43,22 @@ add_library(stbiw_obj STATIC src/stb_impl.cpp)
 target_include_directories(stbiw_obj PRIVATE ./include)
 set_target_properties(stbiw_obj PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-    if (MSVC)
-        # Always-safe opt flags on MSVC
-        target_add_flags_if_supported(stbiw_obj PRIVATE /O2 /GL /Oi /Ot /fp:precise /GS- /Gy /Gw)
-
-        # Only try AVX2 on x86/x64 MSVC toolsets
-        #if (CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|x86_64|x86|i.86")
-        #    target_add_flags_if_supported(stbiw_obj PRIVATE /arch:SSE2)
-        #endif ()
-
+# Optimization flags apply to every non-Debug configuration (works for both
+# single- and multi-config generators via generator expressions).
+set(PYLIB_OPT "$<NOT:$<CONFIG:Debug>>")
+if (MSVC)
+    target_compile_options(stbiw_obj PRIVATE
+            "$<${PYLIB_OPT}:/O2;/GL;/Oi;/Ot;/fp:precise;/Gy;/Gw>")
+else ()
+    target_add_flags_if_supported(stbiw_obj PRIVATE
+            -O3 -fomit-frame-pointer -funroll-loops -fstrict-aliasing)
+    # LTO differs by platform/compiler; thin-LTO on Apple Clang
+    if (APPLE)
+        set(PYLIB_LTO_FLAG -flto=thin)
     else ()
-        # General opts for Clang/GCC
-        target_add_flags_if_supported(stbiw_obj PRIVATE
-                -O3 -fomit-frame-pointer -funroll-loops -fstrict-aliasing
-        )
-
-        # LTO differs by platform/compiler; try thin-LTO on Apple Clang
-        if (APPLE)
-            target_add_flags_if_supported(stbiw_obj PRIVATE -flto=thin)
-        else ()
-            target_add_flags_if_supported(stbiw_obj PRIVATE -flto)
-        endif ()
-
-        # CPU-specific flags by architecture
-        #if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64|x86|i.86")
-        #    target_add_flags_if_supported(stbiw_obj PRIVATE
-        #            -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -mpopcnt
-        #    )
-        #elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
-        #    # Apple/ARM: NEON is default; avoid x86 flags. Optional: tune for host CPU.
-        #    target_add_flags_if_supported(stbiw_obj PRIVATE -mcpu=native)
-        #    # (You usually don't need -mfpu=neon on Apple/ARM; it’s implied.)
-        #endif ()
+        set(PYLIB_LTO_FLAG -flto)
     endif ()
+    check_cxx_compiler_flag(${PYLIB_LTO_FLAG} PYLIB_HAVE_LTO)
 endif ()
 
 
@@ -107,11 +89,11 @@ if (WIN32)
     target_link_libraries(pylib PRIVATE Shlwapi)
 endif ()
 
-target_include_directories(pylib PRIVATE ./include ext/tinyexr ext/vtflib/src ext/tinyexr/deps/miniz)
-target_include_directories(pylib PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/ext/vtflib/src")
+target_include_directories(pylib PRIVATE ./include)
 
 if (MSVC)
-    target_link_options(pylib PRIVATE /LTCG)
-else ()
-    target_link_options(pylib PRIVATE -flto)
+    target_link_options(pylib PRIVATE "$<${PYLIB_OPT}:/LTCG>")
+elseif (PYLIB_HAVE_LTO)
+    target_compile_options(stbiw_obj PRIVATE "$<${PYLIB_OPT}:${PYLIB_LTO_FLAG}>")
+    target_link_options(pylib PRIVATE "$<${PYLIB_OPT}:${PYLIB_LTO_FLAG}>")
 endif ()

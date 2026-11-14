@@ -8,8 +8,8 @@ FetchContent_Declare(
         VTFEdit
         QUIET
         GIT_REPOSITORY https://github.com/REDxEYE/VTFLib.git
-        GIT_TAG master
-        GIT_SHALLOW TRUE
+        # Pinned for reproducible builds; bump deliberately.
+        GIT_TAG 74e2388960cbb3c66301b815f0ca1de4f34e6019
 )
 
 
@@ -67,8 +67,6 @@ FetchContent_MakeAvailable(zstd)
 FetchContent_MakeAvailable(tinyexr)
 FetchContent_MakeAvailable(VTFEdit)
 FetchContent_MakeAvailable(lz4)
-
-FetchContent_MakeAvailable(tinyexr)
 
 add_library(tinyexr STATIC
         "${tinyexr_SOURCE_DIR}/tinyexr.cc"

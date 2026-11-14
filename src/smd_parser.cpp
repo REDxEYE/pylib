@@ -2,6 +2,9 @@
 
 #include "utils/smd_parser.h"
 
+#include <cctype>
+#include <charconv>
+
 using namespace smd;
 
 Parser::Parser(std::string_view source)
@@ -73,24 +76,35 @@ std::vector<std::string_view> Parser::tokenize(std::string_view s) {
 }
 
 
+// stoi/stof accepted one leading '+'; from_chars does not.
+static std::string_view strip_plus(std::string_view sv) {
+    if (sv.size() > 1 && sv[0] == '+' && sv[1] != '-' && sv[1] != '+') sv.remove_prefix(1);
+    return sv;
+}
+
 int Parser::toInt(std::string_view sv) {
     if (m_error) return 0;
-    try {
-        return std::stoi(std::string(sv));
-    } catch (...) {
+    const std::string_view s = strip_plus(sv);
+    int value = 0;
+    const auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
+    if (s.empty() || ec != std::errc() || ptr != s.data() + s.size()) {
         setError("expected integer, got: '" + std::string(sv) + "'");
         return 0;
     }
+    return value;
 }
 
 float Parser::toFloat(std::string_view sv) {
     if (m_error) return 0.f;
-    try {
-        return std::stof(std::string(sv));
-    } catch (...) {
+    const std::string_view s = strip_plus(sv);
+    float value = 0.f;
+    // Locale-independent, unlike stof.
+    const auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
+    if (s.empty() || ec != std::errc() || ptr != s.data() + s.size()) {
         setError("expected float, got: '" + std::string(sv) + "'");
         return 0.f;
     }
+    return value;
 }
 
 void Parser::setError(const std::string &msg) {
@@ -109,7 +123,7 @@ bool Parser::parse(SMDData *out) {
 void Parser::parseTopLevel(SMDData &out) {
     std::string_view line;
     bool versionSeen = false;
-    while (nextLogicalLine(line)) {
+    while (!m_error && nextLogicalLine(line)) {
         auto tok = tokenize(line);
         if (tok.empty()) continue;
 
@@ -137,12 +151,16 @@ void Parser::parseTopLevel(SMDData &out) {
             continue;
         }
     }
+    if (!m_error && !versionSeen) {
+        setError("missing 'version' line");
+    }
 }
 
 void Parser::parseVersion(std::string_view line, SMDData &out) {
     auto tok = tokenize(line);
     if (tok.size() < 2) {
         setError("version line must be: 'version <int>'");
+        return;
     }
     out.version = toInt(tok[1]);
 }
@@ -193,7 +211,7 @@ void Parser::parseSkeleton(SMDData &out) {
     int currentTime = 0;
     bool haveTime = false;
 
-    while (nextLogicalLine(line)) {
+    while (!m_error && nextLogicalLine(line)) {
         if (line == "end") {
             break;
         }
@@ -204,6 +222,7 @@ void Parser::parseSkeleton(SMDData &out) {
         if (tok[0] == "time") {
             if (tok.size() < 2) {
                 setError("skeleton 'time' line must be: 'time <int>'");
+                return;
             }
             currentTime = toInt(tok[1]);
             haveTime = true;
@@ -212,9 +231,11 @@ void Parser::parseSkeleton(SMDData &out) {
         } else {
             if (!haveTime) {
                 setError("bone transform line before any 'time' in skeleton");
+                return;
             }
             if (tok.size() < 7) {
                 setError("skeleton bone line must have 7 fields");
+                return;
             }
             BoneDef k{};
             k.bone = toInt(tok[0]);
@@ -231,7 +252,7 @@ void Parser::parseSkeleton(SMDData &out) {
 
 void Parser::parseTriangles(SMDData &out) {
     std::string_view line;
-    while (true) {
+    while (!m_error) {
         if (!nextLogicalLine(line)) break;
         if (line == "end") {
             break;
@@ -244,10 +265,12 @@ void Parser::parseTriangles(SMDData &out) {
         for (int i = 0; i < 3; ++i) {
             if (!nextLogicalLine(line)) {
                 setError("unexpected EOF while reading triangle vertices");
+                return;
             }
             auto tok = tokenize(line);
             if (tok.size() < 9) {
                 setError("triangle vertex line must have at least 9 fields");
+                return;
             }
 
             Vertex v{};
@@ -265,11 +288,14 @@ void Parser::parseTriangles(SMDData &out) {
             // parent x y z nx ny nz u v [nWeights bone weight ...]
             if (tok.size() > 9) {
                 int count = toInt(tok[9]);
-                std::size_t needed = 10 + count * 2;
-                if (tok.size() < needed) {
-                    setError("triangle vertex weights truncated");
+                if (m_error) return;
+                // `count` comes from the file: bound it by the tokens actually
+                // present before using it for indexing or allocation.
+                if (count < 0 || static_cast<std::size_t>(count) > (tok.size() - 10) / 2) {
+                    setError("triangle vertex weights truncated or invalid count");
+                    return;
                 }
-                v.weights.reserve(count + 1);
+                v.weights.reserve(static_cast<std::size_t>(count) + 1);
 
                 float remainder = 1.0f;
                 for (int w = 0; w < count; ++w) {
@@ -279,7 +305,7 @@ void Parser::parseTriangles(SMDData &out) {
                     v.weights.push_back(vw);
                     remainder -= vw.weight;
                 }
-                if (remainder > 0) {
+                if (remainder > 1e-5f) {
                     v.weights.emplace(v.weights.begin(), firstBone, 0.f); // first bone with implicit weight
                     v.weights[0].weight = remainder;
                 }
@@ -297,7 +323,7 @@ void Parser::parseVertexAnimation(SMDData &out) {
     int currentTime = 0;
     bool haveTime = false;
 
-    while (nextLogicalLine(line)) {
+    while (!m_error && nextLogicalLine(line)) {
         if (line == "end") {
             break;
         }
@@ -308,6 +334,7 @@ void Parser::parseVertexAnimation(SMDData &out) {
         if (tok[0] == "time") {
             if (tok.size() < 2) {
                 setError("vertexanimation 'time' line must be: 'time <int>'");
+                return;
             }
             currentTime = toInt(tok[1]);
             haveTime = true;
@@ -315,9 +342,11 @@ void Parser::parseVertexAnimation(SMDData &out) {
         } else {
             if (!haveTime) {
                 setError("vertexanimation vertex line before any 'time'");
+                return;
             }
             if (tok.size() < 7) {
                 setError("vertexanimation vertex line must have 7 fields");
+                return;
             }
 
             VAKeyVertex v{};

@@ -2,9 +2,12 @@
 
 #ifndef PYLIB_SMD_PARSER_H
 #define PYLIB_SMD_PARSER_H
-#include <string>
-#include <vector>
+#include <cstddef>
+#include <cstdint>
 #include <map>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace smd {
     enum class FileKind {

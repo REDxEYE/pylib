@@ -12,32 +12,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update submodules
-        run: git submodule update --init --recursive
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
 
-      - name: Install dependencies
-        run: |
-          vcpkg install `
-            zlib:x64-windows-static `
-            libpng:x64-windows-static `
-            libjpeg-turbo:x64-windows-static `
-            tiff:x64-windows-static
-
       - name: Configure
         run: |
           cmake -S . -B build `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET=x64-windows-static `
             -DPython3_ROOT_DIR="${{ env.pythonLocation }}" `
-            -DUSE_LIBTXC_DXTN=ON `
             -DBUILD_SHARED_LIBS=OFF
 
       - name: Build
@@ -52,42 +38,38 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux_2_28_x86_64
+    env:
+      PYTHON: /opt/python/cp311-cp311/bin/python
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update submodules
-        run: git submodule update --init --recursive
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
+      - name: Install CMake
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            build-essential \
-            python3-dev \
-            zip \
-            zlib1g-dev \
-            libpng-dev \
-            libjpeg-dev \
-            libtiff-dev
+          "$PYTHON" -m pip install --upgrade "cmake>=3.26"
+          echo "/opt/python/cp311-cp311/bin" >> "$GITHUB_PATH"
 
       - name: Configure
         run: |
+          cmake --version
+          gcc --version
           cmake -S . -B build \
-            -DPython3_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
-            -DUSE_LIBTXC_DXTN=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPython3_ROOT_DIR=/opt/python/cp311-cp311 \
             -DBUILD_SHARED_LIBS=OFF
 
       - name: Build
-        run: cmake --build build --config Release --target pylib
+        run: cmake --build build --config Release --target pylib --parallel
 
-      - name: Zip artifacts
-        run: zip -j linux-binaries.zip build/pylib.abi3.so
+      - name: Check glibc / libstdc++ requirements
+        run: |
+          echo "Highest GLIBC required:"
+          objdump -T build/pylib.abi3.so | grep -oE 'GLIBC_[0-9.]+' | sort -V | uniq | tail -1
+          echo "Highest GLIBCXX required:"
+          objdump -T build/pylib.abi3.so | grep -oE 'GLIBCXX_[0-9.]+' | sort -V | uniq | tail -1
+
+      - name: Run tests
+        run: PYTHONPATH="$PWD/build" "$PYTHON" -m unittest discover -s tests -v
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -101,23 +83,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update submodules
-        run: git submodule update --init --recursive
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          brew install cmake libpng jpeg-turbo libtiff
+          python-version: '3.11'
 
       - name: Build x86_64
         run: |
           cmake -S . -B build_x86_64 \
             -DCMAKE_OSX_ARCHITECTURES=x86_64 \
-            -DUSE_LIBTXC_DXTN=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPython3_ROOT_DIR="${{ env.pythonLocation }}" \
             -DBUILD_SHARED_LIBS=OFF
           cmake --build build_x86_64 --config Release --target pylib
 
@@ -125,7 +101,8 @@ jobs:
         run: |
           cmake -S . -B build_arm64 \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
-            -DUSE_LIBTXC_DXTN=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DPython3_ROOT_DIR="${{ env.pythonLocation }}" \
             -DBUILD_SHARED_LIBS=OFF
           cmake --build build_arm64 --config Release --target pylib
 
@@ -145,56 +122,3 @@ jobs:
         with:
           name: macos-binaries
           path: ./build_universal/pylib.abi3.so
-
-
-  build-linux-gcc12:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Update submodules
-        run: git submodule update --init --recursive
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            cmake \
-            build-essential \
-            python3-dev \
-            zip \
-            gcc-12 \
-            g++-12 \
-            zlib1g-dev \
-            libpng-dev \
-            libjpeg-dev \
-            libtiff-dev
-
-      - name: Configure with GCC 12
-        run: |
-          cmake -S . -B build-gcc12 \
-            -DCMAKE_C_COMPILER=gcc-12 \
-            -DCMAKE_CXX_COMPILER=g++-12 \
-            -DPython3_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
-            -DUSE_LIBTXC_DXTN=ON \
-            -DBUILD_SHARED_LIBS=OFF
-
-      - name: Build
-        run: cmake --build build-gcc12 --config Release --target pylib
-
-      - name: Check libstdc++ requirements
-        run: |
-          readelf --version-info build-gcc12/pylib.abi3.so | grep -oE 'GLIBCXX_[0-9.]+' | sort -V | uniq
-          echo "Highest required:"
-          readelf --version-info build-gcc12/pylib.abi3.so | grep -oE 'GLIBCXX_[0-9.]+' | sort -V | tail -1
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-binaries-gcc12
-          path: build-gcc12/pylib.abi3.so

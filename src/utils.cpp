@@ -5,6 +5,14 @@
 #include "utils/utils.h"
 
 PyObject *type_error(const char* arg, const char* expected, PyObject* got) {
+    // Callers often get here after a conversion helper already raised a
+    // TypeError; replace it with the more specific message below. Any other
+    // pending error (e.g. MemoryError) is kept as is.
+    if (PyErr_Occurred()) {
+        if (!PyErr_ExceptionMatches(PyExc_TypeError))
+            return nullptr;
+        PyErr_Clear();
+    }
     PyObject* t = PyObject_Type(got);              // new ref
     if (!t) return PyErr_Format(PyExc_RuntimeError, "Failed to get type of %s", arg);
     PyObject* n = PyObject_GetAttrString(t, "__name__"); // new ref
@@ -12,7 +20,7 @@ PyObject *type_error(const char* arg, const char* expected, PyObject* got) {
     if (!n) return PyErr_Format(PyExc_RuntimeError, "Failed to get name of type of %s", arg);
     Py_ssize_t cname_size = 0;
     const char* cname = PyUnicode_AsUTF8AndSize(n,&cname_size);       // borrowed char*
-    if (!cname) { Py_DECREF(n); return PyErr_Occurred(); }
+    if (!cname) { Py_DECREF(n); return nullptr; }
     auto error = PyErr_Format(PyExc_TypeError, "%s must be %s, not %.100s", arg, expected, cname);
     Py_DECREF(n);
     return error;
@@ -89,16 +97,18 @@ PyObject *add_submodule(PyObject *parent, const char *name, PyModuleDef *def) {
         return nullptr;
 
     // Make the submodule importable as ``pylib.<name>`` and package-like, so
-    // ``from pylib.vtf import ...`` resolves without a Python-side shim.
+    // ``from pylib.vtf import ...`` resolves without a Python-side shim. The
+    // empty __path__ marks it as a package without pointing finders at fake
+    // directories.
     std::string qualified_name = std::string("pylib.") + name;
-    PyObject *path_list = Py_BuildValue("[s]", qualified_name.c_str());
+    PyObject *path_list = PyList_New(0);
     if (!path_list) {
         Py_DECREF(module);
         return nullptr;
     }
-    int failed = PyModule_AddObject(module, "__path__", path_list) < 0;
+    int failed = PyModule_AddObjectRef(module, "__path__", path_list) < 0;
+    Py_DECREF(path_list);
     if (failed) {
-        Py_DECREF(path_list);
         Py_DECREF(module);
         return nullptr;
     }
@@ -117,13 +127,20 @@ PyObject *add_submodule(PyObject *parent, const char *name, PyModuleDef *def) {
     return module;  // borrowed, owned by parent
 }
 
-int add_type(PyObject *module, const char *name, PyType_Spec *spec) {
+int add_type(PyObject *module, const char *name, PyType_Spec *spec, PyTypeObject **out) {
     PyObject *type = PyType_FromSpec(spec);
     if (!type)
         return -1;
-    if (PyModule_AddObject(module, name, type) < 0) {  // steals on success
+    if (PyModule_AddObjectRef(module, name, type) < 0) {
         Py_DECREF(type);
         return -1;
+    }
+    if (out) {
+        PyTypeObject *old = *out;
+        *out = (PyTypeObject *) type;  // keep our reference
+        Py_XDECREF((PyObject *) old);
+    } else {
+        Py_DECREF(type);
     }
     return 0;
 }
