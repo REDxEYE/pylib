@@ -4,6 +4,16 @@
 
 #include <cctype>
 #include <charconv>
+#if defined(__APPLE__)
+#include <Availability.h>
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 260000
+// libc++ only provides floating point std::from_chars on macOS 26+
+#define PYLIB_STRTOF_FALLBACK 1
+#include <string>
+#include <cstdlib>
+#include <xlocale.h>
+#endif
+#endif
 
 using namespace smd;
 
@@ -99,8 +109,18 @@ float Parser::toFloat(std::string_view sv) {
     const std::string_view s = strip_plus(sv);
     float value = 0.f;
     // Locale-independent, unlike stof.
+#ifdef PYLIB_STRTOF_FALLBACK
+    const std::string text(s);
+    char *end = nullptr;
+    value = strtof_l(text.c_str(), &end, LC_C_LOCALE);
+    // strtof also takes leading whitespace and hex; from_chars (general format) takes neither
+    const bool ok = !text.empty() && !std::isspace(static_cast<unsigned char>(text[0])) &&
+                    text.find_first_of("xX") == std::string::npos && end == text.c_str() + text.size();
+    if (!ok) {
+#else
     const auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), value);
     if (s.empty() || ec != std::errc() || ptr != s.data() + s.size()) {
+#endif
         setError("expected float, got: '" + std::string(sv) + "'");
         return 0.f;
     }

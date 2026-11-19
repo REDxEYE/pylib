@@ -194,6 +194,7 @@ class GeometryTests(unittest.TestCase):
         with self.assertRaises(smdl.InvalidArgumentError):
             geometry.set_weights([[0]] * 23, [[1.0]] * 23)
 
+    @unittest.skipIf(numpy is None, "numpy is not installed")
     def test_weights_take_at_most_16_influences_per_vertex(self):
         model, mesh, root = box_model()
         geometry = mesh.geometry

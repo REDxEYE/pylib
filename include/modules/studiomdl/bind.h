@@ -374,7 +374,10 @@ struct ViewObject {
 // Identity of a view value for equality/hashing: its handle (specialized for values without one, e.g. BoneRef).
 template<class V>
 uintptr_t view_key(const V &value) {
-    return reinterpret_cast<uintptr_t>(value.handle());
+    if constexpr (std::is_pointer_v<decltype(value.handle())>)
+        return reinterpret_cast<uintptr_t>(value.handle());
+    else
+        return static_cast<uintptr_t>(value.handle());  // integer handles (MSVC rejects an identity reinterpret_cast)
 }
 
 template<class V>
