@@ -97,3 +97,32 @@ elseif (PYLIB_HAVE_LTO)
     target_compile_options(stbiw_obj PRIVATE "$<${PYLIB_OPT}:${PYLIB_LTO_FLAG}>")
     target_link_options(pylib PRIVATE "$<${PYLIB_OPT}:${PYLIB_LTO_FLAG}>")
 endif ()
+
+if (PYLIB_WITH_STUDIOMDL)
+    target_sources(pylib PRIVATE
+            src/modules/studiomdl_module.cpp
+            src/modules/studiomdl/core.cpp
+            src/modules/studiomdl/globals.cpp
+            src/modules/studiomdl/skeleton.cpp
+            src/modules/studiomdl/geometry.cpp
+            src/modules/studiomdl/flex.cpp
+            src/modules/studiomdl/rig.cpp
+            src/modules/studiomdl/animation.cpp
+            src/modules/studiomdl/collision.cpp
+            src/modules/studiomdl/bone_dynamics.cpp
+            src/modules/studiomdl/qc.cpp
+    )
+    target_compile_definitions(pylib PRIVATE PYLIB_WITH_STUDIOMDL)
+    target_link_libraries(pylib PRIVATE studiomdl::static)
+endif ()
+
+# Type stubs from the built module (types come from the annotated docstrings, see generate_pyi.py). Not part of ALL:
+# it imports the module, which needs a build for the host's architecture and Python. Run: cmake --build <dir> --target
+# pylib_stubs
+add_custom_target(pylib_stubs
+        COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/generate_pyi.py"
+                --module-dir "$<TARGET_FILE_DIR:pylib>" --output "${CMAKE_CURRENT_SOURCE_DIR}/generated_pyi"
+        DEPENDS pylib
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Generating pylib .pyi stubs"
+        VERBATIM)

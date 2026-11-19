@@ -3,6 +3,9 @@
 #include "modules/mesh_module.h"
 #include "modules/image_module.h"
 #include "modules/vtf_module.h"
+#ifdef PYLIB_WITH_STUDIOMDL
+#include "modules/studiomdl_module.h"
+#endif
 #include "classes/vpk_class.h"
 
 #define PYLIB_MAJOR 0
@@ -63,6 +66,12 @@ PyMODINIT_FUNC PyInit_pylib(void) {
         Py_DECREF(root);
         return nullptr;
     }
+#ifdef PYLIB_WITH_STUDIOMDL
+    if(!StudioMdlModule_Init(root)){
+        Py_DECREF(root);
+        return nullptr;
+    }
+#endif
 
     if (VPK_InitTypes(root) < 0) {
         Py_DECREF(root);
