@@ -407,6 +407,10 @@ const OptionDef geometry_options[] = {
      "bool | None\n--\n\nMaterial names are relative to materials/ like those of a DMX file; the compile also "
      "searches an empty $cdmaterials path.",
      &view_setter<smdl::Geometry, &smdl::Geometry::setRelativeMaterials>},
+    {"indexed_corners",
+     "bool | None\n--\n\nUse input vertex indices to unify corners, preserving separate vertices at the same "
+     "position. Corners still split on material, normals and UVs. Default False retains SMD-style position welding.",
+     &view_setter<smdl::Geometry, &smdl::Geometry::setIndexedCorners>},
     {"source_name",
      "str | None\n--\n\nFile name of the source built from this geometry as the compile's messages and log name it "
      "(\"body.blend\"), used as it is; by default the mesh name with \".smd\".",
