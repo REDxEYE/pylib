@@ -107,6 +107,7 @@ const OptionDef options[] = {
     OPT("max_warnings", setMaxWarnings, "-maxwarnings."),
     OPT("strip_lods", setStripLods, "-striplods."),
     OPT("build_preview", setBuildPreview, "-preview."),
+    OPT("perf", setDumpPerf, "-perf."),
 };
 
 #undef BOX_TYPE

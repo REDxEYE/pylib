@@ -407,6 +407,10 @@ const OptionDef geometry_options[] = {
      "bool | None\n--\n\nMaterial names are relative to materials/ like those of a DMX file; the compile also "
      "searches an empty $cdmaterials path.",
      &view_setter<smdl::Geometry, &smdl::Geometry::setRelativeMaterials>},
+    {"source_name",
+     "str | None\n--\n\nFile name of the source built from this geometry as the compile's messages and log name it "
+     "(\"body.blend\"), used as it is; by default the mesh name with \".smd\".",
+     &view_setter<smdl::Geometry, &smdl::Geometry::setSourceName>},
     {"scale",
      "float | None\n--\n\nScale of positions and rest poses of this geometry; 0 uses the model scale.",
      &view_setter<smdl::Geometry, &smdl::Geometry::setScale>},
