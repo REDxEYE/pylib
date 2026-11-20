@@ -394,6 +394,15 @@ class ShapeAndFlexTests(unittest.TestCase):
         with self.assertRaises(smdl.DuplicateNameError):
             mesh.add_combination_control("ab", ["z"])
 
+    def test_combination_control_without_raw_controls_feeds_flex_rules(self):
+        model, mesh, root = box_model("test/combo_rules")
+        mesh.geometry.add_shape("open", [0, 1, 2, 3], [(0, 0, 1)] * 4)
+        mesh.add_combination_control("jaw", []).set_range(0.0, 2.0)
+        with self.assertRaises(smdl.CompileError):  # the controller needs a rule to feed
+            model.compile()
+        mesh.add_combination_expression("open", "jaw * 0.5")
+        self.assertEqual(model.compile().files["models/test/combo_rules.mdl"][:4], b"IDST")
+
     def test_vertex_cache_animation_compiles(self):
         model, mesh, root = box_model("test/vca")
         geometry = mesh.geometry

@@ -591,7 +591,9 @@ const PyMethodDef mesh_methods[] = {
      "add_combination_control(name: str, raw_controls: StrSequence, stereo: bool = False) -> "
      "CombinationControl\n--\n\nDMX combination operator: a control (flex controller `name`) driven by the raw "
      "controls (names) the geometry's shapes are named after (a shape `a_b_c` combines the raw controls a, b, c). "
-     "stereo makes right_<name> / left_<name> controllers and L/R flexes. Returns the CombinationControl."},
+     "stereo makes right_<name> / left_<name> controllers and L/R flexes. Without raw controls the control only adds "
+     "its controller for combination flex rules (the compile refuses it on a mesh without rules). Returns the "
+     "CombinationControl."},
     {"add_combination_dominator", PYSMDL_METHOD(Mesh_add_combination_dominator), PYSMDL_KW,
      "add_combination_dominator(dominators: StrSequence, suppressed: StrSequence) -> None\n--\n\nDomination "
      "rule: while the dominators (raw control names) are on, the combined shapes containing all suppressed raw "
