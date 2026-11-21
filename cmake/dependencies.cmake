@@ -9,7 +9,7 @@ FetchContent_Declare(
         QUIET
         GIT_REPOSITORY https://github.com/REDxEYE/VTFLib.git
         # Pinned for reproducible builds; bump deliberately.
-        GIT_TAG 74e2388960cbb3c66301b815f0ca1de4f34e6019
+        GIT_TAG 1b2c2a3a676823d73aeec68a3b0d294dec921bb1
 )
 
 
