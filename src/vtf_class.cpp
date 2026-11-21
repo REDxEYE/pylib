@@ -75,8 +75,8 @@ PyDoc_STRVAR(
         "filter_mode : MipFilter or int, optional\n"
         "    Filter used when generating mipmaps; default CATROM.\n"
         "flags : TextureFlags or int, optional\n"
-        "    Accepted for compatibility but currently not applied to the texture;\n"
-        "    use the flags property or set_flag() afterwards.\n"
+        "    Only TextureFlags.NORMAL is applied here (it also makes mipmap generation treat alpha as an\n"
+        "    independent channel); set other flags with the flags property or set_flag() afterwards.\n"
         "generate_mipmaps : bool, optional\n"
         "    Whether to generate mipmaps; default True.\n"
         "generate_thumbnail : bool, optional\n"
@@ -594,6 +594,8 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
                                    ? VTFImageFormat::IMAGE_FORMAT_RGBA32323232F
                                    : VTFImageFormat::IMAGE_FORMAT_RGBA8888;
     const uint32_t pixel_bytes = is_float ? 16u : 4u;
+    // A normal map's alpha is an independent mask (e.g. phong), not coverage: don't weight RGB by it.
+    const bool independent_alpha = self->file->GetFlag(TEXTUREFLAGS_NORMAL);
 
     // VTFLib has no identity conversion, so same-format "conversion" is a copy.
     auto convert = [&](uint8_t *src, uint8_t *dst, uint32_t w, uint32_t h, VTFImageFormat from,
@@ -617,6 +619,12 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
                 return nullptr;
             }
 
+            // Each level is resized from the previous one (not from level 0), so the
+            // work shrinks geometrically. The previous level stays at intermediate precision.
+            std::unique_ptr<uint8_t, decltype(&free)> prev_buffer(nullptr, &free);
+            const uint8_t *prev = rgba_buffer.data();
+            uint32_t prev_width = width;
+            uint32_t prev_height = height;
             for (uint32_t mip = 1; mip < mip_count; ++mip) {
                 uint32_t mip_width = 0;
                 uint32_t mip_height = 0;
@@ -624,12 +632,13 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
                 VTFLib::CVTFFile::ComputeMipmapDimensions(width, height, 1, mip, mip_width, mip_height, mip_depth);
                 // stbir_resize mallocs its own output; owned here so it's freed on every path.
                 std::unique_ptr<uint8_t, decltype(&free)> resized_buffer((uint8_t *) stbir_resize(
-                    rgba_buffer.data(),
-                    static_cast<int>(width), static_cast<int>(height), static_cast<int>(width * pixel_bytes),
+                    prev,
+                    static_cast<int>(prev_width), static_cast<int>(prev_height),
+                    static_cast<int>(prev_width * pixel_bytes),
                     nullptr,
                     static_cast<int>(mip_width), static_cast<int>(mip_height),
                     static_cast<int>(mip_width * pixel_bytes),
-                    STBIR_RGBA,
+                    independent_alpha ? STBIR_RGBA_PM : STBIR_RGBA,
                     is_float ? STBIR_TYPE_FLOAT : STBIR_TYPE_UINT8,
                     STBIR_EDGE_CLAMP,
                     filter), &free);
@@ -647,6 +656,11 @@ PyObject *VTF_generate_mipmaps(VTFObject *self, PyObject *const *args, Py_ssize_
                 }
 
                 self->file->SetData(frame, face, 0, mip, mip_buffer.data());
+
+                prev_buffer = std::move(resized_buffer);
+                prev = prev_buffer.get();
+                prev_width = mip_width;
+                prev_height = mip_height;
             }
         }
     }
@@ -856,6 +870,8 @@ PyObject *VTF_create_from_data(VTFObject *self, PyObject *args, PyObject *kwargs
     }
 
     options.mipmapFilter = (tagVTFMipmapFilter) filter_mode;
+    // The other flags stay unapplied (callers set them afterwards); NORMAL must be known while mips are built.
+    options.flags = (uint32_t) flags & TEXTUREFLAGS_NORMAL;
     auto data = PyROBytesView(data_buf);
     if (!data) return nullptr;
 
