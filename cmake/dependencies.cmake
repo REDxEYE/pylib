@@ -84,23 +84,16 @@ target_link_libraries(tinyexr
         PRIVATE miniz
 )
 
-# studiomdl_v2: the model compiler behind pylib.studiomdl. Its sources use x86 SSE intrinsics and x87 assembly, so it
-# only builds for x86_64; Apple arm64 builds (the arm64 half of the macOS universal binary) leave pylib.studiomdl out.
+# studiomdl_v2: the model compiler behind pylib.studiomdl; builds for x86_64 and arm64.
 # Local development against a checkout: -DFETCHCONTENT_SOURCE_DIR_STUDIOMDL_V2=<path>.
-if (APPLE AND (CMAKE_OSX_ARCHITECTURES MATCHES "arm64"
-        OR (NOT CMAKE_OSX_ARCHITECTURES AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")))
-    set(PYLIB_STUDIOMDL_DEFAULT OFF)
-else ()
-    set(PYLIB_STUDIOMDL_DEFAULT ON)
-endif ()
-option(PYLIB_WITH_STUDIOMDL "Build the pylib.studiomdl model compiler module" ${PYLIB_STUDIOMDL_DEFAULT})
+option(PYLIB_WITH_STUDIOMDL "Build the pylib.studiomdl model compiler module" ON)
 
 if (PYLIB_WITH_STUDIOMDL)
     FetchContent_Declare(
             studiomdl_v2
             GIT_REPOSITORY https://github.com/REDxEYE/studiomdl_v2.git
             # Pinned for reproducible builds; bump deliberately.
-            GIT_TAG fae1d6806eae12563b955d92847a0e4e97f8a143
+            GIT_TAG c50dba67e41103aba854a6b4df1a15b7c197bdd9
     )
     # Must follow meshoptimizer: studiomdl links the host's meshoptimizer target when it exists and would otherwise
     # define its own (vendored) one, which then collides with ours.

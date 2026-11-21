@@ -88,8 +88,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      # pylib.studiomdl is in the x86_64 half only (studiomdl_v2 uses x86 SSE intrinsics); its libc++ std::format of
-      # floating point needs macOS 13.3+. The arm64 half builds without it (PYLIB_WITH_STUDIOMDL defaults OFF there).
+      # Both halves include pylib.studiomdl; its libc++ std::format of floating point needs macOS 13.3+.
       - name: Build x86_64
         run: |
           cmake -S . -B build_x86_64 \
@@ -104,10 +103,15 @@ jobs:
         run: |
           cmake -S . -B build_arm64 \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0 \
             -DCMAKE_BUILD_TYPE=Release \
             -DPython3_ROOT_DIR="${{ env.pythonLocation }}" \
             -DBUILD_SHARED_LIBS=OFF
           cmake --build build_arm64 --config Release --target pylib
+
+      # The runner is arm64: the half Apple Silicon Blender loads must carry the compiler.
+      - name: Check arm64 studiomdl
+        run: PYTHONPATH="$PWD/build_arm64" python -c "import pylib; pylib.studiomdl.Model('check')"
 
       - name: Create universal binary
         run: |
