@@ -36,6 +36,14 @@ jobs:
       - name: Build
         run: cmake --build build --target pylib --parallel
 
+      - name: Strip debug symbols
+        run: llvm-strip --strip-debug build/pylib.pyd
+
+      - name: Check stripped module
+        run: |
+          $env:PYTHONPATH = "$PWD/build"
+          python -c "import pylib; pylib.studiomdl.Model('check')"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -67,6 +75,9 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --target pylib --parallel
+
+      - name: Strip debug and unused symbols
+        run: strip --strip-unneeded build/pylib.abi3.so
 
       - name: Check glibc / libstdc++ requirements
         run: |
@@ -116,10 +127,6 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF
           cmake --build build_arm64 --config Release --target pylib
 
-      # The runner is arm64: the half Apple Silicon Blender loads must carry the compiler.
-      - name: Check arm64 studiomdl
-        run: PYTHONPATH="$PWD/build_arm64" python -c "import pylib; pylib.studiomdl.Model('check')"
-
       - name: Create universal binary
         run: |
           mkdir -p build_universal
@@ -128,8 +135,17 @@ jobs:
             ./build_arm64/pylib.abi3.so \
             -output ./build_universal/pylib.abi3.so
 
+      - name: Strip and sign universal binary
+        run: |
+          xcrun strip -S -x ./build_universal/pylib.abi3.so
+          codesign --force --sign - ./build_universal/pylib.abi3.so
+
       - name: List universal binary
         run: lipo -info ./build_universal/pylib.abi3.so
+
+      # The runner loads the arm64 slice from the final artifact.
+      - name: Check stripped universal module
+        run: PYTHONPATH="$PWD/build_universal" python -c "import pylib; pylib.studiomdl.Model('check')"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
