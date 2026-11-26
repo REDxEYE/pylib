@@ -93,7 +93,7 @@ if (PYLIB_WITH_STUDIOMDL)
             studiomdl_v2
             GIT_REPOSITORY https://github.com/REDxEYE/studiomdl_v2.git
             # Pinned for reproducible builds; bump deliberately.
-            GIT_TAG 4804211ac67953b7543e658c6b94b559f862c891
+            GIT_TAG 4ea98db
     )
     # Must follow meshoptimizer: studiomdl links the host's meshoptimizer target when it exists and would otherwise
     # define its own (vendored) one, which then collides with ours.
